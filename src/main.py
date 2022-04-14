@@ -7,6 +7,8 @@ from torch_geometric.utils import add_self_loops, degree
 from torch_geometric.utils import remove_self_loops, add_self_loops
 import torch.nn as nn
 
+# 需要入门 PyTorch Geometric
+# 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
 nodeNum=3
 edgeNum=2 # 无向边就是4
 topicNum=3
@@ -25,10 +27,8 @@ class DSI(MessagePassing):
         # x has shape [N, in_channels]
         # edge_index has shape [2, E]
 
-        # Step 1: Add self-loops to the adjacency matrix.
         edge_index, _ = remove_self_loops(edge_index)
 
-        # Step 2: Linearly transform node feature matrix.
         x=x.view(nodeNum,topicNum*groupNum)
         print(x.size())
         f = self.lin(x)
