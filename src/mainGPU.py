@@ -35,10 +35,10 @@ class DSI(MessagePassing):
         edge_index, _ = remove_self_loops(edge_index)
 
         x = x.view(nodeNum, topicNum * groupNum)
-        print(x.size())
+        # print(x.size())
         f = self.lin(x)
         L = self.Sig(f - threshold_H)
-        print(L.size())
+        # print(L.size())
         # Step 4-5: Start propagating messages.
         return self.propagate(edge_index, x=L, f=f)
 
@@ -99,7 +99,19 @@ def trainNet(x, edge_index, label):
         loss.backward(retain_graph=True)
         optimizer.step()  # Does the update
         print("epoch: %d, loss: %f" % (epoch, loss))
+        print(threshold_H.size())
+        print(label.size())
+        print(list(range(1, nodeNum)))
+        label_img = torch.rand(nodeNum, 3, 10, 10)
+        log_writer.add_embedding(
+            threshold_H,
+            tag="threshold_H",
+            metadata=list(range(1, nodeNum + 1)),
+            label_img=label_img,
+            global_step=epoch,
+        )
         log_writer.add_scalar("Loss/train", float(loss), epoch)
+        log_writer.add_pr_curve("pr_curve", label, predict, epoch)
         if abs(beforeLoss - loss) < 10e-7:
             break
         beforeLoss = loss
