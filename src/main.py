@@ -44,7 +44,7 @@ class DSI(MessagePassing):
     def update(self, aggr_out, f):
         # aggr_out has shape [N, out_channels]
         # f = self.lin(x)
-        return [self.Sig(f-aggr_out),aggr_out]
+        return [self.Sig(f-aggr_out),aggr_out.detach()]
 
 def exampleDateFrom():
     # 由于是无向图，因此有 4 条边：(0 -> 1), (1 -> 0), (1 -> 2), (2 -> 1)
