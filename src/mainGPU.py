@@ -79,6 +79,15 @@ def trainNet(x, edge_index, label):
     optimizer = torch.optim.AdamW(
         net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01
     )
+    # Print model's state_dict
+    print("Model's state_dict:")
+    for param_tensor in net.state_dict():
+        print(param_tensor, "\t", net.state_dict()[param_tensor].size())
+
+    # Print optimizer's state_dict
+    print("Optimizer's state_dict:")
+    for var_name in optimizer.state_dict():
+        print(var_name, "\t", optimizer.state_dict()[var_name])
     threshold_H = torch.rand(nodeNum, 1, dtype=torch.float)
     x, edge_index, label, threshold_H = (
         x.to(device),
@@ -99,9 +108,9 @@ def trainNet(x, edge_index, label):
         loss.backward(retain_graph=True)
         optimizer.step()  # Does the update
         print("epoch: %d, loss: %f" % (epoch, loss))
-        print(threshold_H.size())
-        print(label.size())
-        print(list(range(1, nodeNum)))
+        # print(threshold_H.size())
+        # print(label.size())
+        # print(list(range(1, nodeNum)))
         label_img = torch.rand(nodeNum, 3, 10, 10)
         log_writer.add_embedding(
             threshold_H,
@@ -115,11 +124,37 @@ def trainNet(x, edge_index, label):
         if abs(beforeLoss - loss) < 10e-7:
             break
         beforeLoss = loss
+    torch.save(net.state_dict(), "./saveNet/save.pt")
+    torch.save(threshold_H, "./saveNet/Htensor.pt")
+
+
+def testNet(x, edge_index, label):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(device)
+    net = DSI(topicNum * BatchSize, BatchSize)
+    net.load_state_dict(torch.load("./saveNet/save.pt"))
+    net.to(device)
+    net.eval()
+    threshold_H = torch.load("./saveNet/Htensor.pt")
+    x, edge_index, label, threshold_H = (
+        x.to(device),
+        edge_index.to(device),
+        label.to(device),
+        threshold_H.to(device),
+    )
+    [predict, threshold_H2] = net(x, edge_index, threshold_H)
+    testNum = (label.size())[0]
+    correctNum = 0
+    for i in range(testNum):
+        if label[i][0] == (predict[i][0] > 0.5):
+            correctNum += 1
+    print("test accuracy: %f" % (correctNum / testNum))
 
 
 def main():
     [x, edge_index, label] = exampleDateFrom()
     trainNet(x, edge_index, label)
+    testNet(x, edge_index, label)
 
 
 if __name__ == "__main__":
