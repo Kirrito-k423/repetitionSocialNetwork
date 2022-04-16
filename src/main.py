@@ -39,6 +39,7 @@ class DSI(MessagePassing):
         for i in range(batchInputNum):
             tmpCosInput = trainGroup_batch[i].expand(self.NodeNum, self.TopicNum)
             f = self.cos(tmpCosInput, self.nodePrefferVector)  # [nodeNum * 1]
+            f = f - threshold_H
 
         x = x.view(nodeNum, topicNum * groupNum)
         # print(x.size())
