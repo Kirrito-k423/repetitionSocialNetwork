@@ -8,6 +8,7 @@ from torch_geometric.utils import remove_self_loops, add_self_loops
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn as nn
 from tensorboardX import SummaryWriter
+from torch.profiler import profile
 
 # 需要入门 PyTorch Geometric
 # 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
@@ -16,7 +17,7 @@ edgeNum = 2  # 无向边就是4
 topicNum = 3
 groupNum = 2
 batchSize = 1
-N_EPOCHS = 10000
+N_EPOCHS = 1000
 
 
 class DSI(MessagePassing):
@@ -126,43 +127,57 @@ def trainNet(dataset, edge_index):
         w.add_graph(net, (gpuTestData, edge_index, threshold_H,))
 
     beforeLoss = 2333
-    for epoch in range(N_EPOCHS):  # loop over the dataset multiple times
-        if epoch % 1000 == 0:
-            print(f"Epoch {epoch + 1}\n-------------------------------")
-
-        # 由于loss是全体Group算一次，所以Batch大小为总大小。
-        # 应该是不需要batch的
-        for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
-            trainGroup_batch = trainGroup_batch.to(device)
-            label_batch = label_batch.to(device)
-            # print("222222222", flush=True)
-            # print(trainGroup_batch, flush=True)
-            optimizer.zero_grad()
-            [predict, threshold_H] = net(trainGroup_batch, edge_index, threshold_H)
-            loss = criterion(predict, label_batch)
-            loss.backward(retain_graph=True)
-            optimizer.step()  # Does the update
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA,
+        ],
+        record_shapes=True,
+        profile_memory=True,
+        with_stack=True,
+        with_flops=True,
+    ) as prof:
+        for epoch in range(N_EPOCHS):  # loop over the dataset multiple times
             if epoch % 1000 == 0:
-                print("epoch: %d, loss: %f" % (epoch, loss))
-            # print(threshold_H.size())
-            # print(label.size())
-            # print(list(range(1, nodeNum)))
+                print(f"Epoch {epoch + 1}\n-------------------------------")
 
-            # label_img = torch.rand(nodeNum, 3, 10, 10)
-            # log_writer.add_embedding(
-            #     threshold_H,
-            #     tag="threshold_H",
-            #     metadata=list(range(1, nodeNum + 1)),
-            #     label_img=label_img,
-            #     global_step=epoch,
-            # )
-            log_writer.add_scalar("Loss/train", float(loss), epoch)
-            # print(predict.size())
-            # print(label_batch.size())
-            log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
-            if abs(beforeLoss - loss) < 10e-7:
-                break
-            beforeLoss = loss
+            # 由于loss是全体Group算一次，所以Batch大小为总大小。
+            # 应该是不需要batch的
+            for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
+                trainGroup_batch = trainGroup_batch.to(device)
+                label_batch = label_batch.to(device)
+                # print("222222222", flush=True)
+                # print(trainGroup_batch, flush=True)
+                optimizer.zero_grad()
+                [predict, threshold_H] = net(trainGroup_batch, edge_index, threshold_H)
+                loss = criterion(predict, label_batch)
+                loss.backward(retain_graph=True)
+                optimizer.step()  # Does the update
+                if epoch % 1000 == 0:
+                    print("epoch: %d, loss: %f" % (epoch, loss))
+                # print(threshold_H.size())
+                # print(label.size())
+                # print(list(range(1, nodeNum)))
+
+                # label_img = torch.rand(nodeNum, 3, 10, 10)
+                # log_writer.add_embedding(
+                #     threshold_H,
+                #     tag="threshold_H",
+                #     metadata=list(range(1, nodeNum + 1)),
+                #     label_img=label_img,
+                #     global_step=epoch,
+                # )
+                log_writer.add_scalar("Loss/train", float(loss), epoch)
+                # print(predict.size())
+                # print(label_batch.size())
+                log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
+                if abs(beforeLoss - loss) < 10e-7:
+                    break
+                beforeLoss = loss
+    # print(prof.table())
+    prof.export_chrome_trace("torch_trace.json")
+    prof.export_stacks("torch_cpu_stack.json", metric="self_cpu_time_total")
+    prof.export_stacks("torch_cuda_stack.json", metric="self_cuda_time_total")
     torch.save(net.state_dict(), "./saveNet/save.pt")
     torch.save(threshold_H, "./saveNet/Htensor.pt")
 

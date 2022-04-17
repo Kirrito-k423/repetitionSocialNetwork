@@ -8,15 +8,15 @@
 ## 其他
 3. 没有用COSINESIMILARITY计算 f
    1. https://pytorch.org/docs/stable/generated/torch.nn.CosineSimilarity.html
-   2. 网络中自己定义的tensor，optimizer会自动更新他们的值吗？还是需要手动来
+4. 网络中自己定义的tensor，optimizer会自动更新他们的值吗？还是需要手动来
       1. 加入是输入的tensor，backward确实会传递梯度，但是optimizer不会修改值
       2. optimizer = optim.Adam([var1, var2], lr = 0.0001)自己添加自己的参数
       3. optimizer = optim.SGD([ {'params': model.base.parameters()}, {'params': model.classifier.parameters(), 'lr': 1e-3} ], lr=1e-2, momentum=0.9)
          1. 以上optim.SGD()中的列表就是构建每个参数的学习率，若没有设置，则默认使用最外如：model.base.parameters()参数使用lr=1e-2  momentum=0.9
       4. 或者自己添加added to the model as a Parameter.
          1. self.alpha = nn.Parameter(torch.tensor(0.5, requires_grad=True)).cuda()
-   3. 之前detach的问题是，对于一个tensor，在backward前修改了。导致问题
-4. batchsize的使用原理
+   1. 之前detach的问题是，对于一个tensor，在backward前修改了。导致问题
+5. batchsize的使用原理
    1. 什么时候归一化，还是归一化是隐含。
       1. https://stackoverflow.com/questions/51735001/how-to-include-batch-size-in-pytorch-basic-example
       2. 网络后会自动归一化吗？
@@ -33,6 +33,27 @@
       6. 实现：
          1. 邻接矩阵以对角线的方式堆叠(创建包含多个孤立子图的巨大图)
          2. 节点和目标特征只是在节点维度中串联???
-5. 测试要迭代H
-6. **message(应该需要x)**
-7. **GPU数据传输**
+6. 测试要迭代H
+7. **message(应该需要x)**
+8. **GPU数据传输**
+   1. net to device。其中的参数也会上cuda
+      1. tensor([[0.7201],
+        [0.4810],
+        [0.6461],
+        [0.0099]], device='cuda:0', requires_grad=True)
+   1. x.to(device)不是移动，而是复制。所以一定要接受y=x.to(device)
+   2. 基于GPU上数据产生的数据也在GPU上
+9.  耗时
+   3. 总耗时 cPython https://stackoverflow.com/questions/582336/how-do-i-profile-a-python-script
+   4. 正常情况应该是前向和后向时间占大头
+   5. https://pytorch.org/docs/stable/profiler.html
+10. 缩短data加载耗时
+    1.  有个dali好像是做这个的，不过我没有用过
+    2.  多弄几个worker
+        1.  dataloader可以设置num worker
+        2.  加载数据多线程
+        3.  不过这些大概都不解决to这一步的耗时
+    3.  以及用pin memory
+
+11. 其他
+   6. https://blog.csdn.net/qq_44015059/article/details/114747640
