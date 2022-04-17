@@ -14,7 +14,7 @@
       3. optimizer = optim.SGD([ {'params': model.base.parameters()}, {'params': model.classifier.parameters(), 'lr': 1e-3} ], lr=1e-2, momentum=0.9)
          1. 以上optim.SGD()中的列表就是构建每个参数的学习率，若没有设置，则默认使用最外如：model.base.parameters()参数使用lr=1e-2  momentum=0.9
       4. 或者自己添加added to the model as a Parameter.
-         1. self.alpha = nn.Parameter(torch.tensor(0.5, requires_grad=True))
+         1. self.alpha = nn.Parameter(torch.tensor(0.5, requires_grad=True)).cuda()
    3. 之前detach的问题是，对于一个tensor，在backward前修改了。导致问题
 4. batchsize的使用原理
    1. 什么时候归一化，还是归一化是隐含。
