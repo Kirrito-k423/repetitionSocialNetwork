@@ -14,49 +14,54 @@ from tensorboardX import SummaryWriter
 nodeNum = 3
 edgeNum = 2  # 无向边就是4
 topicNum = 3
-groupNum = 2  # groupNum = batchSize
-batchSize = 2
+groupNum = 2
+batchSize = 1
 N_EPOCHS = 10000
 
 
 class DSI(MessagePassing):
-    def __init__(self, NodeNum, TopicNum):
+    def __init__(self, NodeNum, TopicNum, EdgeNum):
         super().__init__(aggr="mul")  # "mul" aggregation (Step 5).
-        self.nodePrefferVector = torch.rand(NodeNum, TopicNum)
+        self.nodePrefferVector = nn.Parameter(
+            torch.rand(NodeNum, TopicNum, requires_grad=True)
+        )
         self.cos = nn.CosineSimilarity(dim=1, eps=1e-6)
-        self.message_lin = torch.nn.Linear(NodeNum, NodeNum, bias=False)  # W_{ij}
+        self.Wij = nn.Parameter(torch.rand(EdgeNum, 1, requires_grad=True))  # W_{ij}
         self.Sig = torch.nn.Sigmoid()
+        # self.device = device
         self.NodeNum = NodeNum
         self.TopicNum = TopicNum
 
     def forward(self, trainGroup_batch, edge_index, threshold_H):
-        # x has shape [N, in_channels]
         # edge_index has shape [2, E]
 
         edge_index, _ = remove_self_loops(edge_index)
 
-        batchInputNum = (trainGroup_batch.size())[0]
-        for i in range(batchInputNum):
-            tmpCosInput = trainGroup_batch[i].expand(self.NodeNum, self.TopicNum)
-            f = self.cos(tmpCosInput, self.nodePrefferVector)  # [nodeNum * 1]
-            f = f - threshold_H
-
-        x = x.view(nodeNum, topicNum * groupNum)
-        # print(x.size())
-        f = self.lin(x)
-        L = self.Sig(f - threshold_H)
-        # print(L.size())
+        # batchInputNum = (trainGroup_batch.size())[0]
+        # for i in range(batchInputNum):
+        i = 0
+        tmpCosInput = trainGroup_batch.expand(self.NodeNum, self.TopicNum)
+        # tmpCosInput.to(self.device)
+        f = self.cos(tmpCosInput, self.nodePrefferVector)  # [nodeNum * 1]
+        fMinusH = f - threshold_H
+        # 因为只有一个所以没有
+        fMinusHtranspose = fMinusH.t()
         # Step 4-5: Start propagating messages.
-        return self.propagate(edge_index, x=L, f=f)
+        return self.propagate(edge_index, x=fMinusHtranspose, f=f)
 
     def message(self, x_j, f):
         # x_j has shape [E, out_channels]
-        return self.message_lin(x_j)
+        L = self.Sig(x_j)
+        tmpCat = torch.cat((L, self.Wij), 1)
+        LW = torch.prod(tmpCat, 1)
+        x_j = (1 - LW).view(1, -1).t()
+        return x_j
 
     def update(self, aggr_out, f):
         # aggr_out has shape [N, out_channels]
         # f = self.lin(x)
-        return [self.Sig(f - aggr_out), aggr_out.detach()]
+        ht = aggr_out.t()
+        return [self.Sig(f - ht), ht.detach()]
 
 
 def exampleDateFrom():
@@ -66,7 +71,7 @@ def exampleDateFrom():
 
     # trainGroup features
     # [trainGroupNum , topicNum]
-    x = torch.tensor([[1, 1, 1], [0, 0, 0]], dtype=torch.float,)
+    x = torch.tensor([[1, 2, 3], [0, 0, 0]], dtype=torch.float,)
 
     # label
     # [trainGroupNum, nodeNum]
@@ -79,11 +84,12 @@ def exampleDateFrom():
 
 
 def trainNet(dataset, edge_index):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(device)
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # print(device)
 
-    net = DSI(topicNum * batchSize, batchSize)
-    net.to(device)
+    net = DSI(nodeNum, topicNum, 2 * edgeNum)
+    # net = DSI(nodeNum, topicNum, device)
+    # net.to(device)
 
     criterion = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.AdamW(
@@ -100,12 +106,12 @@ def trainNet(dataset, edge_index):
         print(var_name, "\t", optimizer.state_dict()[var_name])
 
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
-    threshold_H = torch.rand(nodeNum, 1, dtype=torch.float)
-    dataloader, edge_index, threshold_H = (
-        dataloader.to(device),
-        edge_index.to(device),
-        threshold_H.to(device),
-    )
+    threshold_H = torch.rand(1, nodeNum, dtype=torch.float)
+    # dataset.x.to(device)
+    # edge_index, threshold_H = (
+    #     edge_index.to(device),
+    #     threshold_H.to(device),
+    # )
 
     log_writer = SummaryWriter()
     with SummaryWriter(comment="LeNet") as w:
@@ -118,6 +124,7 @@ def trainNet(dataset, edge_index):
         # 由于loss是全体Group算一次，所以Batch大小为总大小。
         # 应该是不需要batch的
         for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
+            # trainGroup_batch.to(device)
             optimizer.zero_grad()
             [predict, threshold_H] = net(trainGroup_batch, edge_index, threshold_H)
             loss = criterion(predict, label_batch)
@@ -137,6 +144,8 @@ def trainNet(dataset, edge_index):
             #     global_step=epoch,
             # )
             log_writer.add_scalar("Loss/train", float(loss), epoch)
+            # print(predict.size())
+            # print(label_batch.size())
             log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
             if abs(beforeLoss - loss) < 10e-7:
                 break
@@ -146,26 +155,27 @@ def trainNet(dataset, edge_index):
 
 
 def testNet(dataset, edge_index):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(device)
-    net = DSI(nodeNum, topicNum)
-    net.load_state_dict(torch.load("./saveNet/save.pt"))
-    net.to(device)
-    net.eval()
-    threshold_H = torch.load("./saveNet/Htensor.pt")
-    x, edge_index, label, threshold_H = (
-        x.to(device),
-        edge_index.to(device),
-        label.to(device),
-        threshold_H.to(device),
-    )
-    [predict, threshold_H2] = net(x, edge_index, threshold_H)
-    testNum = (label.size())[0]
-    correctNum = 0
-    for i in range(testNum):
-        if label[i][0] == (predict[i][0] > 0.5):
-            correctNum += 1
-    print("test accuracy: %f" % (correctNum / testNum))
+    return 0
+    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # print(device)
+    # net = DSI(nodeNum, topicNum)
+    # net.load_state_dict(torch.load("./saveNet/save.pt"))
+    # net.to(device)
+    # net.eval()
+    # threshold_H = torch.load("./saveNet/Htensor.pt")
+    # x, edge_index, label, threshold_H = (
+    #     x.to(device),
+    #     edge_index.to(device),
+    #     label.to(device),
+    #     threshold_H.to(device),
+    # )
+    # [predict, threshold_H2] = net(x, edge_index, threshold_H)
+    # testNum = (label.size())[0]
+    # correctNum = 0
+    # for i in range(testNum):
+    #     if label[i][0] == (predict[i][0] > 0.5):
+    #         correctNum += 1
+    # print("test accuracy: %f" % (correctNum / testNum))
 
 
 def main():
