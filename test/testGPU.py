@@ -40,10 +40,11 @@ class DSI(MessagePassing):
         # batchInputNum = (trainGroup_batch.size())[0]
         # for i in range(batchInputNum):
         i = 0
+        # print(trainGroup_batch)
         tmpCosInput = trainGroup_batch.expand(self.NodeNum, self.TopicNum)
         # tmpCosInput = tmpCosInput.to(self.device)
-        print(tmpCosInput)
-        print(trainGroup_batch)
+        # print(tmpCosInput)
+        # print(trainGroup_batch)
         # print(self.nodePrefferVector)
         f = self.cos(tmpCosInput, self.nodePrefferVector)  # [nodeNum * 1]
         fMinusH = f - threshold_H
@@ -121,25 +122,28 @@ def trainNet(dataset, edge_index):
 
     log_writer = SummaryWriter()
     with SummaryWriter(comment="LeNet") as w:
-        w.add_graph(net, (dataset[0][0], edge_index, threshold_H,))
+        gpuTestData = dataset[0][0].to(device)
+        w.add_graph(net, (gpuTestData, edge_index, threshold_H,))
 
     beforeLoss = 2333
     for epoch in range(N_EPOCHS):  # loop over the dataset multiple times
-        print(f"Epoch {epoch + 1}\n-------------------------------")
+        if epoch % 1000 == 0:
+            print(f"Epoch {epoch + 1}\n-------------------------------")
 
         # 由于loss是全体Group算一次，所以Batch大小为总大小。
         # 应该是不需要batch的
         for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
             trainGroup_batch = trainGroup_batch.to(device)
             label_batch = label_batch.to(device)
-            print("222222222", flush=True)
-            print(trainGroup_batch, flush=True)
+            # print("222222222", flush=True)
+            # print(trainGroup_batch, flush=True)
             optimizer.zero_grad()
             [predict, threshold_H] = net(trainGroup_batch, edge_index, threshold_H)
             loss = criterion(predict, label_batch)
             loss.backward(retain_graph=True)
             optimizer.step()  # Does the update
-            print("epoch: %d, loss: %f" % (epoch, loss))
+            if epoch % 1000 == 0:
+                print("epoch: %d, loss: %f" % (epoch, loss))
             # print(threshold_H.size())
             # print(label.size())
             # print(list(range(1, nodeNum)))
