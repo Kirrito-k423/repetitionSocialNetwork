@@ -1,3 +1,4 @@
 runs/*
 testRun
 *.pt
+test/runs/*

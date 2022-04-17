@@ -41,7 +41,10 @@ class DSI(MessagePassing):
         # for i in range(batchInputNum):
         i = 0
         tmpCosInput = trainGroup_batch.expand(self.NodeNum, self.TopicNum)
-        # tmpCosInput.to(self.device)
+        # tmpCosInput = tmpCosInput.to(self.device)
+        print(tmpCosInput)
+        print(trainGroup_batch)
+        # print(self.nodePrefferVector)
         f = self.cos(tmpCosInput, self.nodePrefferVector)  # [nodeNum * 1]
         fMinusH = f - threshold_H
         # 因为只有一个所以没有
@@ -110,7 +113,7 @@ def trainNet(dataset, edge_index):
 
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
     threshold_H = torch.rand(1, nodeNum, dtype=torch.float)
-    # dataset.x.to(device)
+    # dataset.to(device)
     edge_index, threshold_H = (
         edge_index.to(device),
         threshold_H.to(device),
@@ -127,7 +130,10 @@ def trainNet(dataset, edge_index):
         # 由于loss是全体Group算一次，所以Batch大小为总大小。
         # 应该是不需要batch的
         for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
-            trainGroup_batch.to(device)
+            trainGroup_batch = trainGroup_batch.to(device)
+            label_batch = label_batch.to(device)
+            print("222222222", flush=True)
+            print(trainGroup_batch, flush=True)
             optimizer.zero_grad()
             [predict, threshold_H] = net(trainGroup_batch, edge_index, threshold_H)
             loss = criterion(predict, label_batch)
