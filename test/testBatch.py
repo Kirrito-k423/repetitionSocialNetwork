@@ -15,8 +15,8 @@ from torch.profiler import profile
 nodeNum = 3
 edgeNum = 2  # 无向边就是4
 topicNum = 3
-groupNum = 2
-batchSize = 2
+groupNum = 3
+batchSize = 3
 N_EPOCHS = 1000
 
 
@@ -36,12 +36,10 @@ class DSI(MessagePassing):
 
     def forward(self, trainGroup_batch, edge_index, threshold_H):
         # edge_index has shape [2, E]
-
+        self.BatchSize = trainGroup_batch.size()[0]
+        edge_index = BatchExpand(edge_index, self.BatchSize)
         edge_index, _ = remove_self_loops(edge_index)
 
-        # batchInputNum = (trainGroup_batch.size())[0]
-        # for i in range(batchInputNum):
-        i = 0
         # print(trainGroup_batch)
         tmpCosInput = trainGroup_batch[0].expand(self.NodeNum, self.TopicNum)
         for i in range(self.BatchSize - 1):
@@ -53,16 +51,11 @@ class DSI(MessagePassing):
                 0,
             )
 
-        # tmpCosInput = tmpCosInput.to(self.device)
-        # print(tmpCosInput)
-        # print(trainGroup_batch)
-        # print(self.nodePrefferVector)
         expandNodePrefferVector = torch.cat(
             [self.nodePrefferVector] * self.BatchSize, 0
         )
         f = self.cos(tmpCosInput, expandNodePrefferVector)  # [nodeNum * 1]
         fMinusH = f - torch.cat([threshold_H] * self.BatchSize, 1)
-        # 因为只有一个所以没有
         fMinusHtranspose = fMinusH.t()
         # Step 4-5: Start propagating messages.
         return self.propagate(edge_index, x=fMinusHtranspose, f=f)
@@ -77,23 +70,22 @@ class DSI(MessagePassing):
 
     def update(self, aggr_out, f):
         # aggr_out has shape [N, out_channels]
-        # f = self.lin(x)
         ht = aggr_out.t()
         return [self.Sig(f - ht), ht.detach()]
 
 
 def exampleDateFrom():
-    # 由于是无向图，因此有 4 条边：(0 -> 1), (1 -> 0), (1 -> 2), (2 -> 1)
+    # PyG保存的有向图，因此有 4 条边：(0 -> 1), (1 -> 0), (1 -> 2), (2 -> 1)
     # [2, edgeNum]
     edge_index = torch.tensor([[0, 1, 1, 2], [1, 0, 2, 1]], dtype=torch.long)
 
     # trainGroup features
     # [trainGroupNum , topicNum]
-    x = torch.tensor([[1, 2, 3], [0, 0, 0]], dtype=torch.float,)
+    x = torch.tensor([[1, 2, 3], [0, 0, 0], [1, 0, 0]], dtype=torch.float,)
 
     # label
     # [trainGroupNum, nodeNum]
-    label = torch.tensor([[1, 1, 0], [1, 0, 0]], dtype=torch.float)
+    label = torch.tensor([[1, 1, 0], [1, 0, 0], [0, 0, 1]], dtype=torch.float)
     # Use torch.utils.data to create a DataLoader
     # that will take care of creating batches
     dataset = TensorDataset(x, label)
@@ -101,12 +93,12 @@ def exampleDateFrom():
     return [dataset, edge_index]
 
 
-def BatchExpand(edge_index):
+def BatchExpand(edge_index, batch_size):
     tmp = edge_index
-    for i in range(batchSize - 1):
+    for i in range(batch_size - 1):
         tmp = tmp + nodeNum
         edge_index = torch.cat((edge_index, tmp), 1)
-    print(edge_index)
+    # print(edge_index)
     return edge_index
 
 
@@ -115,7 +107,7 @@ def meanBatchOut(batchOut):
     tmpSum = torch.zeros(1, nodeNum).cuda()
     for i in range(len(tmpList)):
         tmpSum += tmpList[i]
-    return tmpSum / batchSize
+    return tmpSum / len(tmpList)
 
 
 def trainNet(dataset, edge_index):
@@ -123,29 +115,31 @@ def trainNet(dataset, edge_index):
     print(device)
 
     net = DSI(nodeNum, topicNum, 2 * edgeNum, device, batchSize)
-    # net = DSI(nodeNum, topicNum, device)
     net.to(device)
 
     criterion = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.AdamW(
         net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01
     )
+
     # Print model's state_dict
-    print("Model's state_dict:")
+    print("\nModel's state_dict:")
     for param_tensor in net.state_dict():
         print(param_tensor, "\t", net.state_dict()[param_tensor].size())
+
+    print("\nparam.cuda()")
     # In pseudo code (this won't work with nested nn.Module
     with torch.no_grad():
         for name, param in net.named_parameters():
             print(param.cuda())
+
     # Print optimizer's state_dict
-    print("Optimizer's state_dict:")
+    print("\nOptimizer's state_dict:")
     for var_name in optimizer.state_dict():
         print(var_name, "\t", optimizer.state_dict()[var_name])
 
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
     threshold_H = torch.rand(1, nodeNum, dtype=torch.float)
-    edge_index = BatchExpand(edge_index)
     # dataset.to(device)
     edge_index, threshold_H = (
         edge_index.to(device),
@@ -177,7 +171,7 @@ def trainNet(dataset, edge_index):
         for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
             # trainGroup_batch = trainGroup_batch.reshape(1, topicNum * batchSize)
             trainGroup_batch = trainGroup_batch.to(device)
-            label_batch = label_batch.reshape(1, topicNum * batchSize)
+            label_batch = label_batch.reshape(1, topicNum * label_batch.size()[0])
             label_batch = label_batch.to(device)
             # print("222222222", flush=True)
             # print(trainGroup_batch, flush=True)
