@@ -11,10 +11,11 @@ from tensorboardX import SummaryWriter
 from torch.profiler import profile
 from rich.progress import track
 from data import DataBase
+
 # 需要入门 PyTorch Geometric
 # 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
 nodeNum = 0
-edgeNum = 0 # 保存的是两倍的数量
+edgeNum = 0  # 保存的是两倍的数量
 topicNum = 0
 groupNum = 0
 batchSize = 1
@@ -163,7 +164,9 @@ def trainNet(dataset, edge_index):
     #     with_stack=True,
     #     with_flops=True,
     # ) as prof:
-    for epoch in range(N_EPOCHS):  # loop over the dataset multiple times
+    for epoch in track(
+        range(N_EPOCHS), description="epoch"
+    ):  # loop over the dataset multiple times
         if epoch % 200 == 0:
             print(f"Epoch {epoch + 1}\n-------------------------------")
 
@@ -237,10 +240,14 @@ def testNet(dataset, edge_index):
 
 
 def main():
-    global nodeNum,edgeNum,topicNum,groupNum
+    global nodeNum, edgeNum, topicNum, groupNum
     db = DataBase()
-    [dataset, edge_index,nodeNum,edgeNum,topicNum,groupNum] = db.exampleDataFrom()
-    print("nodeNum,edgeNum,topicNum,groupNum {} {} {} {} ".format(nodeNum,edgeNum,topicNum,groupNum))
+    [dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum] = db.exampleDataFrom()
+    print(
+        "nodeNum,edgeNum,topicNum,groupNum {} {} {} {} ".format(
+            nodeNum, edgeNum, topicNum, groupNum
+        )
+    )
     trainNet(dataset, edge_index)
     # testNet(dataset, edge_index)
 
