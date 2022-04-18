@@ -5,3 +5,4 @@ testRun
 test/runs/*
 *.json
 *.pyc
+notGit

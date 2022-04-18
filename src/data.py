@@ -24,7 +24,7 @@ class DataBase(object):
         self.conn = psycopg2.connect(
             database='meetup', user=user, password=password, host=host, port=port)
 
-    def exampleDataFrom(self):
+    def exampleDataFrom(self, membernum):
         cursor = self.conn.cursor()
 
         # get edge
@@ -32,7 +32,7 @@ class DataBase(object):
         cursor.execute(sql)
         members_in_same_event = cursor.fetchall()
         members_in_same_event = [_[0] for _ in members_in_same_event]
-        members = sorted(self.query('members', ['id']))
+        members = sorted(self.query('members', ['id']))[:membernum]
         members_with_index = dict(
             zip([_[0] for _ in members], range(len(members))))
         edge_index = [[], []]
@@ -126,4 +126,4 @@ class DataBase(object):
 
 if __name__ == '__main__':
     db = DataBase()
-    db.exampleDataFrom()
+    db.exampleDataFrom(100)

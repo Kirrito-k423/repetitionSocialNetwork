@@ -18,8 +18,9 @@ nodeNum = 0
 edgeNum = 0  # 保存的是两倍的数量
 topicNum = 0
 groupNum = 0
-batchSize = 1
+batchSize = 16
 N_EPOCHS = 10000
+echo2Print=1
 
 
 class DSI(MessagePassing):
@@ -165,17 +166,17 @@ def trainNet(dataset, edge_index):
     #     with_flops=True,
     # ) as prof:
     for epoch in track(
-        range(N_EPOCHS), description="epoch"
+        range(N_EPOCHS), total=N_EPOCHS,description="epoch"
     ):  # loop over the dataset multiple times
-        if epoch % 200 == 0:
-            print(f"Epoch {epoch + 1}\n-------------------------------")
+        # if epoch % 200 == 0:
+        #     print(f"Epoch {epoch + 1}\n-------------------------------")
 
         # 由于loss是全体Group算一次，所以Batch大小为总大小。
         # 应该是不需要batch的
         for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
             # trainGroup_batch = trainGroup_batch.reshape(1, topicNum * batchSize)
             trainGroup_batch = trainGroup_batch.to(device)
-            print(label_batch.size())
+            # print(label_batch.size())
             label_batch = label_batch.reshape(1, nodeNum * label_batch.size()[0])
             label_batch = label_batch.to(device)
             # print("222222222", flush=True)
@@ -186,27 +187,27 @@ def trainNet(dataset, edge_index):
             loss = criterion(predict, label_batch)
             loss.backward(retain_graph=True)
             optimizer.step()  # Does the update
-            if epoch % 100 == 0:
-                print("epoch: %d, loss: %f" % (epoch, loss))
-            # print(threshold_H.size())
-            # print(label.size())
-            # print(list(range(1, nodeNum)))
+        if epoch % echo2Print == 0:
+            print("epoch: %d, loss: %f" % (epoch, loss))
+        # print(threshold_H.size())
+        # print(label.size())
+        # print(list(range(1, nodeNum)))
 
-            # label_img = torch.rand(nodeNum, 3, 10, 10)
-            # log_writer.add_embedding(
-            #     threshold_H,
-            #     tag="threshold_H",
-            #     metadata=list(range(1, nodeNum + 1)),
-            #     label_img=label_img,
-            #     global_step=epoch,
-            # )
-            log_writer.add_scalar("Loss/train", float(loss), epoch)
-            # print(predict.size())
-            # print(label_batch.size())
-            log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
-            if abs(beforeLoss - loss) < 10e-7:
-                break
-            beforeLoss = loss
+        # label_img = torch.rand(nodeNum, 3, 10, 10)
+        # log_writer.add_embedding(
+        #     threshold_H,
+        #     tag="threshold_H",
+        #     metadata=list(range(1, nodeNum + 1)),
+        #     label_img=label_img,
+        #     global_step=epoch,
+        # )
+        log_writer.add_scalar("Loss/train", float(loss), epoch)
+        # print(predict.size())
+        # print(label_batch.size())
+        log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
+        if abs(beforeLoss - loss) < 10e-7:
+            break
+        beforeLoss = loss
     # print(prof.table())
     # prof.export_chrome_trace("torch_trace.json")
     # prof.export_stacks("torch_cpu_stack.json", metric="self_cpu_time_total")
@@ -242,7 +243,7 @@ def testNet(dataset, edge_index):
 def main():
     global nodeNum, edgeNum, topicNum, groupNum
     db = DataBase()
-    [dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum] = db.exampleDataFrom()
+    [dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum] = db.exampleDataFrom(1000)
     print(
         "nodeNum,edgeNum,topicNum,groupNum {} {} {} {} ".format(
             nodeNum, edgeNum, topicNum, groupNum
