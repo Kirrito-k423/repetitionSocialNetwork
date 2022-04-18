@@ -9,15 +9,16 @@ from torch.utils.data import DataLoader, TensorDataset
 import torch.nn as nn
 from tensorboardX import SummaryWriter
 from torch.profiler import profile
-
+from rich.progress import track
+from data import DataBase
 # 需要入门 PyTorch Geometric
 # 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
-nodeNum = 3
-edgeNum = 2  # 无向边就是4
-topicNum = 3
-groupNum = 3
-batchSize = 3
-N_EPOCHS = 1000
+nodeNum = 0
+edgeNum = 0 # 保存的是两倍的数量
+topicNum = 0
+groupNum = 0
+batchSize = 1
+N_EPOCHS = 10000
 
 
 class DSI(MessagePassing):
@@ -74,23 +75,23 @@ class DSI(MessagePassing):
         return [self.Sig(f - ht), ht.detach()]
 
 
-def exampleDateFrom():
-    # PyG保存的有向图，因此有 4 条边：(0 -> 1), (1 -> 0), (1 -> 2), (2 -> 1)
-    # [2, edgeNum]
-    edge_index = torch.tensor([[0, 1, 1, 2], [1, 0, 2, 1]], dtype=torch.long)
+# def exampleDateFrom():
+#     # PyG保存的有向图，因此有 4 条边：(0 -> 1), (1 -> 0), (1 -> 2), (2 -> 1)
+#     # [2, edgeNum]
+#     edge_index = torch.tensor([[0, 1, 1, 2], [1, 0, 2, 1]], dtype=torch.long)
 
-    # trainGroup features
-    # [trainGroupNum , topicNum]
-    x = torch.tensor([[1, 2, 3], [0, 0, 0], [1, 0, 0]], dtype=torch.float,)
+#     # trainGroup features
+#     # [trainGroupNum , topicNum]
+#     x = torch.tensor([[1, 2, 3], [0, 0, 0], [1, 0, 0]], dtype=torch.float,)
 
-    # label
-    # [trainGroupNum, nodeNum]
-    label = torch.tensor([[1, 1, 0], [1, 0, 0], [0, 0, 1]], dtype=torch.float)
-    # Use torch.utils.data to create a DataLoader
-    # that will take care of creating batches
-    dataset = TensorDataset(x, label)
-    print(x.size())
-    return [dataset, edge_index]
+#     # label
+#     # [trainGroupNum, nodeNum]
+#     label = torch.tensor([[1, 1, 0], [1, 0, 0], [0, 0, 1]], dtype=torch.float)
+#     # Use torch.utils.data to create a DataLoader
+#     # that will take care of creating batches
+#     dataset = TensorDataset(x, label)
+#     print(x.size())
+#     return [dataset, edge_index]
 
 
 def BatchExpand(edge_index, batch_size):
@@ -114,7 +115,7 @@ def trainNet(dataset, edge_index):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
-    net = DSI(nodeNum, topicNum, 2 * edgeNum, device, batchSize)
+    net = DSI(nodeNum, topicNum, edgeNum, device, batchSize)
     net.to(device)
 
     criterion = nn.MSELoss(reduction="sum")
@@ -163,7 +164,7 @@ def trainNet(dataset, edge_index):
     #     with_flops=True,
     # ) as prof:
     for epoch in range(N_EPOCHS):  # loop over the dataset multiple times
-        if epoch % 1000 == 0:
+        if epoch % 200 == 0:
             print(f"Epoch {epoch + 1}\n-------------------------------")
 
         # 由于loss是全体Group算一次，所以Batch大小为总大小。
@@ -171,7 +172,8 @@ def trainNet(dataset, edge_index):
         for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
             # trainGroup_batch = trainGroup_batch.reshape(1, topicNum * batchSize)
             trainGroup_batch = trainGroup_batch.to(device)
-            label_batch = label_batch.reshape(1, topicNum * label_batch.size()[0])
+            print(label_batch.size())
+            label_batch = label_batch.reshape(1, nodeNum * label_batch.size()[0])
             label_batch = label_batch.to(device)
             # print("222222222", flush=True)
             # print(trainGroup_batch, flush=True)
@@ -235,7 +237,10 @@ def testNet(dataset, edge_index):
 
 
 def main():
-    [dataset, edge_index] = exampleDateFrom()
+    global nodeNum,edgeNum,topicNum,groupNum
+    db = DataBase()
+    [dataset, edge_index,nodeNum,edgeNum,topicNum,groupNum] = db.exampleDataFrom()
+    print("nodeNum,edgeNum,topicNum,groupNum {} {} {} {} ".format(nodeNum,edgeNum,topicNum,groupNum))
     trainNet(dataset, edge_index)
     # testNet(dataset, edge_index)
 

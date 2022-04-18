@@ -1,5 +1,7 @@
 runs/*
+src/runs/*
 testRun
 *.pt
 test/runs/*
 *.json
+*.pyc
