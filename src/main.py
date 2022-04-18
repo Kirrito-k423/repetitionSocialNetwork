@@ -11,16 +11,19 @@ from tensorboardX import SummaryWriter
 from torch.profiler import profile
 from rich.progress import track
 from data import DataBase
+import pickle
 
 # 需要入门 PyTorch Geometric
 # 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
-nodeNum = 0
+nodeNum = 1000
 edgeNum = 0  # 保存的是两倍的数量
 topicNum = 0
 groupNum = 0
 batchSize = 16
-N_EPOCHS = 10000
+N_EPOCHS = 500
 echo2Print=1
+threshold=0.5
+
 
 
 class DSI(MessagePassing):
@@ -205,6 +208,12 @@ def trainNet(dataset, edge_index):
         # print(predict.size())
         # print(label_batch.size())
         log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
+        predict01=torch.rand(predict.size()[0],predict.size()[1])
+        for i in range(predict.size()[0]):
+            for j in range(predict.size()[1]):
+                predict01[i][j]=(predict[i][j]>threshold)
+        # print(predict.size())
+        log_writer.add_pr_curve("pr_curve_01", label_batch, predict01, epoch)
         if abs(beforeLoss - loss) < 10e-7:
             break
         beforeLoss = loss
@@ -217,40 +226,63 @@ def trainNet(dataset, edge_index):
 
 
 def testNet(dataset, edge_index):
-    return 0
-    # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # print(device)
-    # net = DSI(nodeNum, topicNum)
-    # net.load_state_dict(torch.load("./saveNet/save.pt"))
-    # net.to(device)
-    # net.eval()
-    # threshold_H = torch.load("./saveNet/Htensor.pt")
-    # x, edge_index, label, threshold_H = (
-    #     x.to(device),
-    #     edge_index.to(device),
-    #     label.to(device),
-    #     threshold_H.to(device),
-    # )
-    # [predict, threshold_H2] = net(x, edge_index, threshold_H)
-    # testNum = (label.size())[0]
-    # correctNum = 0
-    # for i in range(testNum):
-    #     if label[i][0] == (predict[i][0] > 0.5):
-    #         correctNum += 1
-    # print("test accuracy: %f" % (correctNum / testNum))
+    # return 0
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(device)
+
+    net = DSI(nodeNum, topicNum, edgeNum, device, batchSize)
+    net.load_state_dict(torch.load("./saveNet/save.pt"))
+    net.to(device)
+    net.eval()
+    dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
+    threshold_H = torch.load("./saveNet/Htensor.pt")
+    edge_index, threshold_H = (
+        edge_index.to(device),
+        threshold_H.to(device),
+    )
+    testNum=0
+    correctNum = 0
+    for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
+        # trainGroup_batch = trainGroup_batch.reshape(1, topicNum * batchSize)
+        trainGroup_batch = trainGroup_batch.to(device)
+        # print(label_batch.size())
+        label_batch = label_batch.reshape(1, nodeNum * label_batch.size()[0])
+        label_batch = label_batch.to(device)
+        # print("222222222", flush=True)
+        # print(trainGroup_batch, flush=True)
+        [predict, tmpthreshold_H] = net(trainGroup_batch, edge_index, threshold_H)
+        threshold_H = meanBatchOut(tmpthreshold_H)
+        batchTestNum=(label_batch.size())[1]
+        testNum += batchTestNum
+        for i in range(batchTestNum):
+            if batchTestNum[0][i] == (predict[0][i] > threshold):
+                correctNum += 1
+    print("test accuracy: %f" % (correctNum / testNum))
 
 
 def main():
     global nodeNum, edgeNum, topicNum, groupNum
-    db = DataBase()
-    [dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum] = db.exampleDataFrom(1000)
+    try:
+        f = open("nodeNum_"+str(nodeNum)+".tmp", "rb")
+        # Do something with the file
+        [dataset, prediction_dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum,predictGroupNum] = pickle.load(f)
+        f.close()
+    except IOError:
+        print("File nodeNum = {} not accessible".format(nodeNum))
+        db = DataBase()
+        [dataset, prediction_dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum,predictGroupNum] = db.exampleDataFrom(nodeNum, percent=0.8, simple_topics=True)
+        f = open("nodeNum_"+str(nodeNum)+".tmp", "wb")
+        pickle.dump([dataset, prediction_dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum,predictGroupNum] , f)
+        f.close()
+        
+    
     print(
-        "nodeNum,edgeNum,topicNum,groupNum {} {} {} {} ".format(
-            nodeNum, edgeNum, topicNum, groupNum
+        "nodeNum,edgeNum,topicNum,groupNum predictGroupNum {} {} {} {} {}".format(
+            nodeNum, edgeNum, topicNum, groupNum, predictGroupNum
         )
     )
     trainNet(dataset, edge_index)
-    # testNet(dataset, edge_index)
+    testNet(prediction_dataset, edge_index)
 
 
 if __name__ == "__main__":
