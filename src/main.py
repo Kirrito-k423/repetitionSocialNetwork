@@ -217,9 +217,7 @@ def trainNet(dataset, edge_index):
         #     global_step=epoch,
         # )
         log_writer.add_scalar("Loss/train", float(loss), epoch)
-        log_writer.add_scalar(
-            "accuracy", correctNum / testNum , epoch
-        )
+        log_writer.add_scalar("accuracy", correctNum / testNum, epoch)
         # print(predict.size())
         # print(label_batch.size())
         log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
