@@ -12,6 +12,7 @@ from torch.profiler import profile
 from rich.progress import track
 from data import DataBase
 import pickle
+import sys
 
 # 需要入门 PyTorch Geometric
 # 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
@@ -19,10 +20,11 @@ nodeNum = 1000
 edgeNum = 0  # 保存的是两倍的数量
 topicNum = 0
 groupNum = 0
-batchSize = 16
+batchSize = 32
 N_EPOCHS = 500
 echo2Print=1
 threshold=0.5
+trainLR=0.0001
 
 
 
@@ -125,7 +127,7 @@ def trainNet(dataset, edge_index):
 
     criterion = nn.MSELoss(reduction="sum")
     optimizer = torch.optim.AdamW(
-        net.parameters(), lr=0.001, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01
+        net.parameters(), lr=trainLR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01
     )
 
     # Print model's state_dict
@@ -225,9 +227,9 @@ def trainNet(dataset, edge_index):
     torch.save(threshold_H, "./saveNet/Htensor.pt")
 
 
-def testNet(dataset, edge_index):
+def testNet(dataset, edge_index,gpuDevice):
     # return 0
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device(gpuDevice if torch.cuda.is_available() else "cpu")
     print(device)
 
     net = DSI(nodeNum, topicNum, edgeNum, device, batchSize)
@@ -254,13 +256,26 @@ def testNet(dataset, edge_index):
         threshold_H = meanBatchOut(tmpthreshold_H)
         batchTestNum=(label_batch.size())[1]
         testNum += batchTestNum
+        print(testNum)
         for i in range(batchTestNum):
-            if batchTestNum[0][i] == (predict[0][i] > threshold):
+            if label_batch[i] == (predict[i] > threshold):
                 correctNum += 1
     print("test accuracy: %f" % (correctNum / testNum))
 
 
 def main():
+    args = sys.argv[1:]
+    # args is a list of the command line args
+    if args[0]=='predict':
+        skip_training=1
+    else:
+        skip_training=0
+
+    if args[1]:
+        gpuDevice=args[1]
+    else:
+        gpuDevice="cuda:0"
+    
     global nodeNum, edgeNum, topicNum, groupNum
     try:
         f = open("nodeNum_"+str(nodeNum)+".tmp", "rb")
@@ -281,8 +296,12 @@ def main():
             nodeNum, edgeNum, topicNum, groupNum, predictGroupNum
         )
     )
-    trainNet(dataset, edge_index)
-    testNet(prediction_dataset, edge_index)
+    if skip_training == 0:
+        print("train")
+        # trainNet(dataset, edge_index)
+    else:
+        print("skip train")
+    testNet(prediction_dataset, edge_index,gpuDevice)
 
 
 if __name__ == "__main__":
