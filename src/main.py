@@ -22,10 +22,9 @@ topicNum = 0
 groupNum = 0
 batchSize = 32
 N_EPOCHS = 500
-echo2Print=1
-threshold=0.5
-trainLR=0.0001
-
+echo2Print = 1
+threshold = 0.5
+trainLR = 0.0001
 
 
 class DSI(MessagePassing):
@@ -171,7 +170,7 @@ def trainNet(dataset, edge_index):
     #     with_flops=True,
     # ) as prof:
     for epoch in track(
-        range(N_EPOCHS), total=N_EPOCHS,description="epoch"
+        range(N_EPOCHS), total=N_EPOCHS, description="epoch"
     ):  # loop over the dataset multiple times
         # if epoch % 200 == 0:
         #     print(f"Epoch {epoch + 1}\n-------------------------------")
@@ -210,10 +209,10 @@ def trainNet(dataset, edge_index):
         # print(predict.size())
         # print(label_batch.size())
         log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
-        predict01=torch.rand(predict.size()[0],predict.size()[1])
+        predict01 = torch.rand(predict.size()[0], predict.size()[1])
         for i in range(predict.size()[0]):
             for j in range(predict.size()[1]):
-                predict01[i][j]=(predict[i][j]>threshold)
+                predict01[i][j] = predict[i][j] > threshold
         # print(predict.size())
         log_writer.add_pr_curve("pr_curve_01", label_batch, predict01, epoch)
         if abs(beforeLoss - loss) < 10e-7:
@@ -227,7 +226,7 @@ def trainNet(dataset, edge_index):
     torch.save(threshold_H, "./saveNet/Htensor.pt")
 
 
-def testNet(dataset, edge_index,gpuDevice):
+def testNet(dataset, edge_index, gpuDevice):
     # return 0
     device = torch.device(gpuDevice if torch.cuda.is_available() else "cpu")
     print(device)
@@ -242,7 +241,7 @@ def testNet(dataset, edge_index,gpuDevice):
         edge_index.to(device),
         threshold_H.to(device),
     )
-    testNum=0
+    testNum = 0
     correctNum = 0
     for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
         # trainGroup_batch = trainGroup_batch.reshape(1, topicNum * batchSize)
@@ -254,11 +253,13 @@ def testNet(dataset, edge_index,gpuDevice):
         # print(trainGroup_batch, flush=True)
         [predict, tmpthreshold_H] = net(trainGroup_batch, edge_index, threshold_H)
         threshold_H = meanBatchOut(tmpthreshold_H)
-        batchTestNum=(label_batch.size())[1]
+        batchTestNum = (label_batch.size())[1]
         testNum += batchTestNum
         print(testNum)
+        # print(label_batch.size())
+        # print(predict.size())
         for i in range(batchTestNum):
-            if label_batch[i] == (predict[i] > threshold):
+            if label_batch[0][i] == (predict[0][i] > threshold):
                 correctNum += 1
     print("test accuracy: %f" % (correctNum / testNum))
 
@@ -266,31 +267,60 @@ def testNet(dataset, edge_index,gpuDevice):
 def main():
     args = sys.argv[1:]
     # args is a list of the command line args
-    if args[0]=='predict':
-        skip_training=1
+    if args[0] == "predict":
+        skip_training = 1
     else:
-        skip_training=0
+        skip_training = 0
 
-    if args[1]:
-        gpuDevice=args[1]
+    if len(args) > 1:
+        gpuDevice = args[1]
     else:
-        gpuDevice="cuda:0"
-    
+        gpuDevice = "cuda:0"
+
     global nodeNum, edgeNum, topicNum, groupNum
     try:
-        f = open("nodeNum_"+str(nodeNum)+".tmp", "rb")
+        f = open("nodeNum_" + str(nodeNum) + ".tmp", "rb")
         # Do something with the file
-        [dataset, prediction_dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum,predictGroupNum] = pickle.load(f)
+        [
+            dataset,
+            prediction_dataset,
+            edge_index,
+            nodeNum,
+            edgeNum,
+            topicNum,
+            groupNum,
+            predictGroupNum,
+        ] = pickle.load(f)
         f.close()
     except IOError:
         print("File nodeNum = {} not accessible".format(nodeNum))
         db = DataBase()
-        [dataset, prediction_dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum,predictGroupNum] = db.exampleDataFrom(nodeNum, percent=0.8, simple_topics=True)
-        f = open("nodeNum_"+str(nodeNum)+".tmp", "wb")
-        pickle.dump([dataset, prediction_dataset, edge_index, nodeNum, edgeNum, topicNum, groupNum,predictGroupNum] , f)
+        [
+            dataset,
+            prediction_dataset,
+            edge_index,
+            nodeNum,
+            edgeNum,
+            topicNum,
+            groupNum,
+            predictGroupNum,
+        ] = db.exampleDataFrom(nodeNum, percent=0.8, simple_topics=True)
+        f = open("nodeNum_" + str(nodeNum) + ".tmp", "wb")
+        pickle.dump(
+            [
+                dataset,
+                prediction_dataset,
+                edge_index,
+                nodeNum,
+                edgeNum,
+                topicNum,
+                groupNum,
+                predictGroupNum,
+            ],
+            f,
+        )
         f.close()
-        
-    
+
     print(
         "nodeNum,edgeNum,topicNum,groupNum predictGroupNum {} {} {} {} {}".format(
             nodeNum, edgeNum, topicNum, groupNum, predictGroupNum
@@ -301,7 +331,7 @@ def main():
         # trainNet(dataset, edge_index)
     else:
         print("skip train")
-    testNet(prediction_dataset, edge_index,gpuDevice)
+    testNet(prediction_dataset, edge_index, gpuDevice)
 
 
 if __name__ == "__main__":
