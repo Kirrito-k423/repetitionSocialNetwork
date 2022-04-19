@@ -177,6 +177,8 @@ def trainNet(dataset, edge_index):
 
         # 由于loss是全体Group算一次，所以Batch大小为总大小。
         # 应该是不需要batch的
+        testNum = 0
+        correctNum = 0
         for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
             # trainGroup_batch = trainGroup_batch.reshape(1, topicNum * batchSize)
             trainGroup_batch = trainGroup_batch.to(device)
@@ -191,6 +193,15 @@ def trainNet(dataset, edge_index):
             loss = criterion(predict, label_batch)
             loss.backward(retain_graph=True)
             optimizer.step()  # Does the update
+            batchTestNum = (label_batch.size())[1]
+            testNum += batchTestNum
+            for i in range(batchTestNum):
+                if label_batch[0][i] == (predict[0][i] > threshold):
+                    correctNum += 1
+                if label_batch[0][i] == 1:
+                    positiveLabelNum += 1
+                elif label_batch[0][i] == 0:
+                    negativeLabelNum += 1
         if epoch % echo2Print == 0:
             print("epoch: %d, loss: %f" % (epoch, loss))
         # print(threshold_H.size())
@@ -206,6 +217,9 @@ def trainNet(dataset, edge_index):
         #     global_step=epoch,
         # )
         log_writer.add_scalar("Loss/train", float(loss), epoch)
+        log_writer.add_scalar(
+            "accuracy", correctNum / testNum , epoch
+        )
         # print(predict.size())
         # print(label_batch.size())
         log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
@@ -243,6 +257,8 @@ def testNet(dataset, edge_index, gpuDevice):
     )
     testNum = 0
     correctNum = 0
+    positiveLabelNum = 0
+    negativeLabelNum = 0
     for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
         # trainGroup_batch = trainGroup_batch.reshape(1, topicNum * batchSize)
         trainGroup_batch = trainGroup_batch.to(device)
@@ -261,7 +277,15 @@ def testNet(dataset, edge_index, gpuDevice):
         for i in range(batchTestNum):
             if label_batch[0][i] == (predict[0][i] > threshold):
                 correctNum += 1
+            if label_batch[0][i] == 1:
+                positiveLabelNum += 1
+            elif label_batch[0][i] == 0:
+                negativeLabelNum += 1
     print("test accuracy: %f" % (correctNum / testNum))
+    print(
+        "positiveLabelNum: %d negativeLabelNum: %d ratio: %f"
+        % (positiveLabelNum, negativeLabelNum, positiveLabelNum / negativeLabelNum)
+    )
 
 
 def main():
