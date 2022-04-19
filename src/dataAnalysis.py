@@ -1,6 +1,7 @@
 from datetime import date
 from inspect import Parameter
 from platform import node
+from tokenize import group
 import torch
 from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import add_self_loops, degree
@@ -13,7 +14,7 @@ from rich.progress import track
 from data import DataBase
 import pickle
 import sys
-from pprint import pprint
+from tsjPython.tsjCommonFunc import *
 
 # 需要入门 PyTorch Geometric
 # 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
@@ -26,6 +27,43 @@ N_EPOCHS = 500
 echo2Print = 1
 threshold = 0.5
 trainLR = 0.0001
+
+
+def groupMemberNum(dataset, batch_size, groupName):
+    groupNumDict = dict()
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
+        tmpGroupNum = 0
+        # print(label_batch.size())
+        for i in range((label_batch.size())[1]):
+            if label_batch[0][i] == 1:
+                tmpGroupNum += 1
+        if tmpGroupNum in groupNumDict:
+            groupNumDict[tmpGroupNum] += 1
+        else:
+            groupNumDict[tmpGroupNum] = 1
+    passPrint(groupName)
+    print("group的成员数：group个数")
+    pPrint(groupNumDict)
+
+
+def memberJoinGroupNum(dataset, batch_size, groupName):
+    groupNumDict = {}
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
+        valuePrint(label_batch.size())
+        label_batch = torch.sum(label_batch, 0)
+        valuePrint(label_batch.size())
+        # print(label_batch.size())
+        for i in range(label_batch.size()[0]):
+            tmpGroupNum = int(label_batch[i])
+            if tmpGroupNum in groupNumDict:
+                groupNumDict[tmpGroupNum] += 1
+            else:
+                groupNumDict[tmpGroupNum] = 1
+    passPrint(groupName)
+    print("每个人参加group数：人数")
+    pPrint(groupNumDict)
 
 
 def main():
@@ -78,37 +116,11 @@ def main():
             nodeNum, edgeNum, topicNum, groupNum, predictGroupNum
         )
     )
-    print(dataset)
-    groupNumDict = dict()
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
-    for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
-        tmpGroupNum = 0
-        # print(label_batch.size())
-        for i in range((label_batch.size())[1]):
-            if label_batch[0][i] == 1:
-                tmpGroupNum += 1
-        if tmpGroupNum in groupNumDict:
-            groupNumDict[tmpGroupNum] += 1
-        else:
-            groupNumDict[tmpGroupNum] = 1
-    print("group的成员数：group个数")
-    pprint(groupNumDict)
-
-    groupNumDict = {}
-    dataloader = DataLoader(dataset, batch_size=groupNum, shuffle=True)
-    for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
-        print(label_batch.size())
-        label_batch = torch.sum(label_batch, 0)
-        print(label_batch.size())
-        # print(label_batch.size())
-        for i in range(label_batch.size()[0]):
-            tmpGroupNum = int(label_batch[i])
-            if tmpGroupNum in groupNumDict:
-                groupNumDict[tmpGroupNum] += 1
-            else:
-                groupNumDict[tmpGroupNum] = 1
-    print("每个人参加group数：人数")
-    pprint(groupNumDict)
+    # print(dataset)
+    groupMemberNum(dataset, 1, "trainGroup")
+    memberJoinGroupNum(dataset, groupNum, "trainGroup")
+    groupMemberNum(prediction_dataset, 1, "predictGroup")
+    memberJoinGroupNum(prediction_dataset, predictGroupNum, "predictGroup")
 
 
 if __name__ == "__main__":
