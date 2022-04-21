@@ -287,7 +287,11 @@ def trainNet(dataset, edge_index, lossKind):
 
                 loss = criterion(lossPredict, lossLabel)
             elif lossKind == "Focal":
-                loss = criterion(predict, label_batch)
+                lossLabel = ((label_batch[0]).type(torch.LongTensor)).to(device)
+                predictDelOne = 1 - predict
+                lossPredict = (torch.cat((predictDelOne, predict), 0).t()).to(device)
+
+                loss = criterion(lossPredict, lossLabel)
             loss.backward(retain_graph=True)
             optimizer.step()  # Does the update
             # batchTestNum = (label_batch.size())[1]
@@ -386,7 +390,7 @@ def testNet(dataset, edge_index, gpuDevice, lossKind):
 
 
 def main():
-    global nodeNum, edgeNum, topicNum, groupNum,batchSize
+    global nodeNum, edgeNum, topicNum, groupNum, batchSize
     parser = argparse.ArgumentParser()
     parser.description = "please enter some parameters"
     parser.add_argument(
@@ -417,7 +421,7 @@ def main():
         dest="loss",
         type=str,
         choices=["Mse", "CrossEnt", "Focal"],
-        default="CrossEnt",
+        default="Focal",
     )
     parser.add_argument(
         "-d",
@@ -429,12 +433,7 @@ def main():
         default="Debug",
     )
     parser.add_argument(
-        "-b",
-        "--batch",
-        help="batch size",
-        dest="batch",
-        type=int,
-        default="16",
+        "-b", "--batch", help="batch size", dest="batch", type=int, default="1",
     )
     args = parser.parse_args()
 
