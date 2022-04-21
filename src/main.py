@@ -13,6 +13,7 @@ from rich.progress import track
 from data import DataBase
 import pickle
 import sys
+from dataAnalysis import readDataFromDatabase
 
 # 需要入门 PyTorch Geometric
 # 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
@@ -287,23 +288,28 @@ def testNet(dataset, edge_index, gpuDevice):
 
 
 def main():
+    global nodeNum, edgeNum, topicNum, groupNum
     args = sys.argv[1:]
     # args is a list of the command line args
     if args[0] == "predict":
         skip_training = 1
+        skip_predict = 0
+    elif args[0] == "skip":
+        skip_training = 1
+        skip_predict = 1
     else:
         skip_training = 0
+        skip_predict = 0
 
-    if len(args) > 1:
+    if len(args) == 1:
         gpuDevice = args[1]
+    elif len(args) == 2:
+        gpuDevice = args[1]
+        nodeNum=int(args[2])
     else:
         gpuDevice = "cuda:0"
-
-    global nodeNum, edgeNum, topicNum, groupNum
-    try:
-        f = open("nodeNum_" + str(nodeNum) + ".tmp", "rb")
-        # Do something with the file
-        [
+   
+    [
             dataset,
             prediction_dataset,
             edge_index,
@@ -312,36 +318,7 @@ def main():
             topicNum,
             groupNum,
             predictGroupNum,
-        ] = pickle.load(f)
-        f.close()
-    except IOError:
-        print("File nodeNum = {} not accessible".format(nodeNum))
-        db = DataBase()
-        [
-            dataset,
-            prediction_dataset,
-            edge_index,
-            nodeNum,
-            edgeNum,
-            topicNum,
-            groupNum,
-            predictGroupNum,
-        ] = db.exampleDataFrom(nodeNum, percent=0.8, simple_topics=True)
-        f = open("nodeNum_" + str(nodeNum) + ".tmp", "wb")
-        pickle.dump(
-            [
-                dataset,
-                prediction_dataset,
-                edge_index,
-                nodeNum,
-                edgeNum,
-                topicNum,
-                groupNum,
-                predictGroupNum,
-            ],
-            f,
-        )
-        f.close()
+        ] = readDataFromDatabase(nodeNum)
 
     print(
         "nodeNum,edgeNum,topicNum,groupNum predictGroupNum {} {} {} {} {}".format(
@@ -353,7 +330,11 @@ def main():
         # trainNet(dataset, edge_index)
     else:
         print("skip train")
-    testNet(prediction_dataset, edge_index, gpuDevice)
+    if skip_predict == 0:
+        print("predict")
+        testNet(prediction_dataset, edge_index, gpuDevice)
+    else:
+        print("skip predict")
 
 
 if __name__ == "__main__":
