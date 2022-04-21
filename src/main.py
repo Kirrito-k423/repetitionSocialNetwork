@@ -25,7 +25,7 @@ nodeNum = 1000
 edgeNum = 0  # 保存的是两倍的数量
 topicNum = 0
 groupNum = 0
-batchSize = 1
+batchSize = 16
 N_EPOCHS = 500
 echo2Print = 1
 threshold = 0.5
@@ -386,7 +386,7 @@ def testNet(dataset, edge_index, gpuDevice, lossKind):
 
 
 def main():
-    global nodeNum, edgeNum, topicNum, groupNum
+    global nodeNum, edgeNum, topicNum, groupNum,batchSize
     parser = argparse.ArgumentParser()
     parser.description = "please enter some parameters"
     parser.add_argument(
@@ -428,6 +428,14 @@ def main():
         choices=["debug", "NotDebug"],
         default="Debug",
     )
+    parser.add_argument(
+        "-b",
+        "--batch",
+        help="batch size",
+        dest="batch",
+        type=int,
+        default="16",
+    )
     args = parser.parse_args()
 
     yellowPrint("parameter mode is : %s" % args.mode)
@@ -435,6 +443,7 @@ def main():
     yellowPrint("parameter node num is : %d " % args.node)
     yellowPrint("parameter loss kind is :%s" % args.loss)
     yellowPrint("parameter is debug is :%s" % args.debug)
+    yellowPrint("parameter batch size is :%s" % args.batch)
 
     # args is a list of the command line args
     if args.mode == "predict":
@@ -449,6 +458,7 @@ def main():
 
     gpuDevice = args.cuda
     nodeNum = int(args.node)
+    batchSize = args.batch
 
     if args.debug == "NotDebug":
         [
