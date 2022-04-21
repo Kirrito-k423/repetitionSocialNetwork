@@ -1,3 +1,4 @@
+from audioop import add
 from datetime import date
 from inspect import Parameter
 from platform import node
@@ -337,8 +338,9 @@ def trainNet(dataset, edge_index, lossKind):
     # prof.export_chrome_trace("torch_trace.json")
     # prof.export_stacks("torch_cpu_stack.json", metric="self_cpu_time_total")
     # prof.export_stacks("torch_cuda_stack.json", metric="self_cuda_time_total")
-    torch.save(net.state_dict(), "./saveNet/save" + lossKind + ".pt")
-    torch.save(threshold_H, "./saveNet/Htensor" + lossKind + ".pt")
+    addstr=lossKind + "Node"+str(nodeNum)+"Batch"+str(batchSize)+"Epoch"+str(N_EPOCHS)+"LR"+str(trainLR)
+    torch.save(net.state_dict(), "./saveNet/save" +addstr +".pt")
+    torch.save(threshold_H, "./saveNet/Htensor" + addstr +".pt")
 
 
 def testNet(dataset, edge_index, gpuDevice, lossKind):
@@ -347,11 +349,12 @@ def testNet(dataset, edge_index, gpuDevice, lossKind):
     print(device)
 
     net = DSI(nodeNum, topicNum, edgeNum, device, batchSize)
-    net.load_state_dict(torch.load("./saveNet/save" + lossKind + ".pt"))
+    addstr=lossKind + "Node"+str(nodeNum)+"Batch"+str(batchSize)+"Epoch"+str(N_EPOCHS)+"LR"+str(trainLR)
+    net.load_state_dict(torch.load("./saveNet/save" + addstr+".pt"))
     net.to(device)
     net.eval()
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
-    threshold_H = torch.load("./saveNet/Htensor" + lossKind + ".pt")
+    threshold_H = torch.load("./saveNet/Htensor" + addstr+".pt")
     edge_index, threshold_H = (
         edge_index.to(device),
         threshold_H.to(device),
@@ -390,7 +393,7 @@ def testNet(dataset, edge_index, gpuDevice, lossKind):
 
 
 def main():
-    global nodeNum, edgeNum, topicNum, groupNum, batchSize
+    global nodeNum, edgeNum, topicNum, groupNum, batchSize, trainLR, N_EPOCHS
     parser = argparse.ArgumentParser()
     parser.description = "please enter some parameters"
     parser.add_argument(
@@ -435,6 +438,12 @@ def main():
     parser.add_argument(
         "-b", "--batch", help="batch size", dest="batch", type=int, default="1",
     )
+    parser.add_argument(
+        "-lr", "--learn", help="train learning rate", dest="lr", type=float, default="0.0001",
+    )
+    parser.add_argument(
+        "-e", "--epoch", help="epoch num", dest="epoch", type=int, default="500",
+    )
     args = parser.parse_args()
 
     yellowPrint("parameter mode is : %s" % args.mode)
@@ -443,6 +452,8 @@ def main():
     yellowPrint("parameter loss kind is :%s" % args.loss)
     yellowPrint("parameter is debug is :%s" % args.debug)
     yellowPrint("parameter batch size is :%s" % args.batch)
+    yellowPrint("parameter train learning rate is :%f" % args.lr)
+    yellowPrint("parameter epoch num is :%d" % args.epoch)
 
     # args is a list of the command line args
     if args.mode == "predict":
@@ -458,6 +469,8 @@ def main():
     gpuDevice = args.cuda
     nodeNum = int(args.node)
     batchSize = args.batch
+    trainLR = args.lr
+    N_EPOCHS = args.epoch 
 
     if args.debug == "NotDebug":
         [
