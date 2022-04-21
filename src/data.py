@@ -171,13 +171,15 @@ class DataBase(object):
                "array_agg(distinct groups.id) groupids, "
                "array_agg(distinct members.id) memberids, "
                "array_agg(distinct topicsid) topicids, "
-               "array_agg(distinct topics.name) topicnames "
+               "array_agg(distinct topics.name) topicnames, "
+               "count(distinct groups.id) groupnum, "
+               "count(distinct members.id) membernum "
                "from groups left join members on groups.city=members.city "
                "left join membertopics on members.id=membertopics.memberid "
                "left join topics on membertopics.topicsid=topics.id "
                "where topicsid is not null and "
                "topics.name is not null "
-               "group by groups.city limit {}").format(citynum)
+               "group by groups.city order by groupnum desc limit {}").format(citynum)
         cursor.execute(sql)
         data_by_city = cursor.fetchall()
         print("Get data by city finished. Start processing...")
@@ -230,7 +232,7 @@ class DataBase(object):
         self.get_labels()
         self.get_group_features()
 
-    def exampleDataFrom(self, membernum=-1, percent=0.2, simple_topics=False, use_top_city=True, citynum=5):
+    def exampleDataFrom(self, membernum=-1, percent=0.8, simple_topics=False, use_top_city=True, citynum=5):
         """get train data and prediction data
 
         Args:
