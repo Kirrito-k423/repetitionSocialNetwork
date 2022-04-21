@@ -14,6 +14,9 @@ from data import DataBase
 import pickle
 import sys
 from dataAnalysis import readDataFromDatabase
+import argparse
+
+
 
 # 需要入门 PyTorch Geometric
 # 不介意可以看我写的 http://home.ustc.edu.cn/~shaojiemike/posts/pytorchgeometric
@@ -21,7 +24,7 @@ nodeNum = 1000
 edgeNum = 0  # 保存的是两倍的数量
 topicNum = 0
 groupNum = 0
-batchSize = 32
+batchSize = 8
 N_EPOCHS = 500
 echo2Print = 1
 threshold = 0.5
@@ -178,8 +181,10 @@ def trainNet(dataset, edge_index):
 
         # 由于loss是全体Group算一次，所以Batch大小为总大小。
         # 应该是不需要batch的
-        testNum = 0
-        correctNum = 0
+        # testNum = 0
+        # correctNum = 0
+        # positiveLabelNum = 0
+        # negativeLabelNum = 0
         for id_batch, (trainGroup_batch, label_batch) in enumerate(dataloader):
             # trainGroup_batch = trainGroup_batch.reshape(1, topicNum * batchSize)
             trainGroup_batch = trainGroup_batch.to(device)
@@ -194,15 +199,15 @@ def trainNet(dataset, edge_index):
             loss = criterion(predict, label_batch)
             loss.backward(retain_graph=True)
             optimizer.step()  # Does the update
-            batchTestNum = (label_batch.size())[1]
-            testNum += batchTestNum
-            for i in range(batchTestNum):
-                if label_batch[0][i] == (predict[0][i] > threshold):
-                    correctNum += 1
-                if label_batch[0][i] == 1:
-                    positiveLabelNum += 1
-                elif label_batch[0][i] == 0:
-                    negativeLabelNum += 1
+            # batchTestNum = (label_batch.size())[1]
+            # testNum += batchTestNum
+            # for i in range(batchTestNum):
+            #     if label_batch[0][i] == (predict[0][i] > threshold):
+            #         correctNum += 1
+            #     if label_batch[0][i] == 1:
+            #         positiveLabelNum += 1
+            #     elif label_batch[0][i] == 0:
+            #         negativeLabelNum += 1
         if epoch % echo2Print == 0:
             print("epoch: %d, loss: %f" % (epoch, loss))
         # print(threshold_H.size())
@@ -218,7 +223,8 @@ def trainNet(dataset, edge_index):
         #     global_step=epoch,
         # )
         log_writer.add_scalar("Loss/train", float(loss), epoch)
-        log_writer.add_scalar("accuracy", correctNum / testNum, epoch)
+        # log_writer.add_scalar("accuracy", correctNum / testNum, epoch)
+        # log_writer.add_scalar("positiveLabelNum/negativeLabelNum", positiveLabelNum / negativeLabelNum, epoch)
         # print(predict.size())
         # print(label_batch.size())
         log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
@@ -289,25 +295,31 @@ def testNet(dataset, edge_index, gpuDevice):
 
 def main():
     global nodeNum, edgeNum, topicNum, groupNum
-    args = sys.argv[1:]
+    parser = argparse.ArgumentParser()
+    parser.description='please enter some parameters'
+    parser.add_argument("-m", "--mode", help="just predict", dest="mode", type=str, choices =["all","predict","skipall"], default="skipall")
+    parser.add_argument("-c", "--cuda", help="which gpu to use", dest="cuda", type=str, choices=["cuda:0","cuda:1","cuda:2"], default="cuda:0")
+    parser.add_argument("-n", "--node", help="train nodenum", dest="node", type=int, default="10613")
+    args = parser.parse_args()
+
+    print("parameter mode is :",args.mode)
+    print("parameter cuda device is :",args.cuda)
+
     # args is a list of the command line args
-    if args[0] == "predict":
+    if args.mode == "predict":
         skip_training = 1
         skip_predict = 0
-    elif args[0] == "skip":
+    elif args.mode == "skipall":
         skip_training = 1
         skip_predict = 1
     else:
         skip_training = 0
         skip_predict = 0
 
-    if len(args) == 2:
-        gpuDevice = args[1]
-    elif len(args) == 3:
-        gpuDevice = args[1]
-        nodeNum=int(args[2])
-    else:
-        gpuDevice = "cuda:0"
+
+    gpuDevice = args.cuda
+    nodeNum=int(args.node)
+
    
     [
             dataset,
@@ -327,7 +339,7 @@ def main():
     )
     if skip_training == 0:
         print("train")
-        # trainNet(dataset, edge_index)
+        trainNet(dataset, edge_index)
     else:
         print("skip train")
     if skip_predict == 0:
