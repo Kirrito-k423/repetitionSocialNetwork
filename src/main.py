@@ -282,6 +282,7 @@ def trainNet(dataset, edge_index,lossKind):
         # print(predict.size())
         # print(label_batch.size())
         log_writer.add_pr_curve("pr_curve", label_batch, predict, epoch)
+        log_writer.add_pr_curve("ture pr_curve", label_batch, label_batch, epoch)
         predict01 = torch.rand(predict.size()[0], predict.size()[1])
         for i in range(predict.size()[0]):
             for j in range(predict.size()[1]):
@@ -340,7 +341,7 @@ def testNet(dataset, edge_index, gpuDevice,lossKind):
                 positiveLabelNum += 1
             elif label_batch[0][i] == 0:
                 negativeLabelNum += 1
-    print("test accuracy: %f" % (correctNum / testNum))
+    passPrint("test accuracy: %f" % (correctNum / testNum))
     print(
         "positiveLabelNum: %d negativeLabelNum: %d ratio: %f"
         % (positiveLabelNum, negativeLabelNum, positiveLabelNum / negativeLabelNum)
