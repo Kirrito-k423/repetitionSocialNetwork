@@ -206,7 +206,7 @@ def trainNet(dataset, edge_index, lossKind):
         criterion = nn.MSELoss(reduction="sum")
     elif lossKind == "CrossEnt":
         criterion = nn.CrossEntropyLoss(
-            weight=torch.from_numpy(np.array([1, 4000])).float(), size_average=True
+            weight=(torch.from_numpy(np.array([1, 4000]))).to(device), size_average=True
         )
     elif lossKind == "Focal":
         criterion = focal_loss(alpha=0.25, gamma=2, num_classes=2, size_average=True)
@@ -280,9 +280,10 @@ def trainNet(dataset, edge_index, lossKind):
             if lossKind == "Mse":
                 loss = criterion(predict, label_batch)
             elif lossKind == "CrossEnt":
-                lossLabel = label_batch[0]
+                lossLabel = (label_batch[0]).to(device)
                 predictDelOne = 1 - predict
-                lossPredict = torch.cat((predictDelOne, predict), 0).t()
+                lossPredict = (torch.cat((predictDelOne, predict), 0).t()).to(device)
+
                 loss = criterion(lossPredict, lossLabel)
             elif lossKind == "Focal":
                 loss = criterion(predict, label_batch)
