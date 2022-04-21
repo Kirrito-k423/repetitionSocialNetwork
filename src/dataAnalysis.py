@@ -65,9 +65,7 @@ def memberJoinGroupNum(dataset, batch_size, groupName):
     print("每个人参加group数：人数")
     pPrint(groupNumDict)
 
-
-def main():
-    global nodeNum, edgeNum, topicNum, groupNum
+def readDataFromDatabase(nodeNum):
     try:
         f = open("nodeNum_" + str(nodeNum) + ".tmp", "rb")
         # Do something with the file
@@ -94,7 +92,7 @@ def main():
             topicNum,
             groupNum,
             predictGroupNum,
-        ] = db.exampleDataFrom(nodeNum, percent=0.8, simple_topics=True)
+        ] = db.exampleDataFrom(nodeNum, percent=0.8, simple_topics=True,use_top_city=True,citynum=1)
         f = open("nodeNum_" + str(nodeNum) + ".tmp", "wb")
         pickle.dump(
             [
@@ -110,7 +108,29 @@ def main():
             f,
         )
         f.close()
-
+    return [
+            dataset,
+            prediction_dataset,
+            edge_index,
+            nodeNum,
+            edgeNum,
+            topicNum,
+            groupNum,
+            predictGroupNum,
+        ]
+def main():
+    global nodeNum, edgeNum, topicNum, groupNum
+    
+    [
+            dataset,
+            prediction_dataset,
+            edge_index,
+            nodeNum,
+            edgeNum,
+            topicNum,
+            groupNum,
+            predictGroupNum,
+        ]= readDataFromDatabase(nodeNum)
     print(
         "nodeNum,edgeNum,topicNum,groupNum predictGroupNum {} {} {} {} {}".format(
             nodeNum, edgeNum, topicNum, groupNum, predictGroupNum
