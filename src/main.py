@@ -25,14 +25,15 @@ nodeNum = 1000
 edgeNum = 0  # 保存的是两倍的数量
 topicNum = 0
 groupNum = 0
-batchSize = 8
+batchSize = 1
 N_EPOCHS = 500
 echo2Print = 1
 threshold = 0.5
 trainLR = 0.0001
 
-class focal_loss(nn.Module):    
-    def __init__(self, alpha=0.25, gamma=2, num_classes = 3, size_average=True):
+
+class focal_loss(nn.Module):
+    def __init__(self, alpha=0.25, gamma=2, num_classes=3, size_average=True):
         """
         focal_loss损失函数, -α(1-yi)**γ *ce_loss(xi,yi)      
         步骤详细的实现了 focal_loss损失函数.
@@ -42,18 +43,24 @@ class focal_loss(nn.Module):
         :param size_average:    损失计算方式,默认取均值
         """
 
-        super(focal_loss,self).__init__()
+        super(focal_loss, self).__init__()
         self.size_average = size_average
-        if isinstance(alpha,list):
-            assert len(alpha)==num_classes   # α可以以list方式输入,size:[num_classes] 用于对不同类别精细地赋予权重
+        if isinstance(alpha, list):
+            assert (
+                len(alpha) == num_classes
+            )  # α可以以list方式输入,size:[num_classes] 用于对不同类别精细地赋予权重
             print("Focal_loss alpha = {}, 将对每一类权重进行精细化赋值".format(alpha))
             self.alpha = torch.Tensor(alpha)
         else:
-            assert alpha<1   #如果α为一个常数,则降低第一类的影响,在目标检测中为第一类
-            print(" --- Focal_loss alpha = {} ,将对背景类进行衰减,请在目标检测任务中使用 --- ".format(alpha))
+            assert alpha < 1  # 如果α为一个常数,则降低第一类的影响,在目标检测中为第一类
+            print(
+                " --- Focal_loss alpha = {} ,将对背景类进行衰减,请在目标检测任务中使用 --- ".format(alpha)
+            )
             self.alpha = torch.zeros(num_classes)
             self.alpha[0] += alpha
-            self.alpha[1:] += (1-alpha) # α 最终为 [ α, 1-α, 1-α, 1-α, 1-α, ...] size:[num_classes]
+            self.alpha[1:] += (
+                1 - alpha
+            )  # α 最终为 [ α, 1-α, 1-α, 1-α, 1-α, ...] size:[num_classes]
         self.gamma = gamma
 
     def forward(self, preds, labels):
@@ -62,22 +69,29 @@ class focal_loss(nn.Module):
         :param preds:   预测类别. size:[B,N,C] or [B,C]    分别对应与检测与分类任务, B 批次, N检测框数, C类别数        
         :param labels:  实际类别. size:[B,N] or [B]        
         :return:
-        """        
-        # assert preds.dim()==2 and labels.dim()==1        
-        preds = preds.view(-1,preds.size(-1))        
-        self.alpha = self.alpha.to(preds.device)        
-        preds_softmax = F.softmax(preds, dim=1) # 这里并没有直接使用log_softmax, 因为后面会用到softmax的结果(当然你也可以使用log_softmax,然后进行exp操作)        
+        """
+        # assert preds.dim()==2 and labels.dim()==1
+        preds = preds.view(-1, preds.size(-1))
+        self.alpha = self.alpha.to(preds.device)
+        preds_softmax = F.softmax(
+            preds, dim=1
+        )  # 这里并没有直接使用log_softmax, 因为后面会用到softmax的结果(当然你也可以使用log_softmax,然后进行exp操作)
         preds_logsoft = torch.log(preds_softmax)
-        preds_softmax = preds_softmax.gather(1,labels.view(-1,1))   # 这部分实现nll_loss ( crossempty = log_softmax + nll )        
-        preds_logsoft = preds_logsoft.gather(1,labels.view(-1,1))        
-        self.alpha = self.alpha.gather(0,labels.view(-1))        
-        loss = -torch.mul(torch.pow((1-preds_softmax), self.gamma), preds_logsoft)  # torch.pow((1-preds_softmax), self.gamma) 为focal loss中 (1-pt)**γ
-        loss = torch.mul(self.alpha, loss.t())        
-        if self.size_average:        
-            loss = loss.mean()        
-        else:            
-            loss = loss.sum()        
+        preds_softmax = preds_softmax.gather(
+            1, labels.view(-1, 1)
+        )  # 这部分实现nll_loss ( crossempty = log_softmax + nll )
+        preds_logsoft = preds_logsoft.gather(1, labels.view(-1, 1))
+        self.alpha = self.alpha.gather(0, labels.view(-1))
+        loss = -torch.mul(
+            torch.pow((1 - preds_softmax), self.gamma), preds_logsoft
+        )  # torch.pow((1-preds_softmax), self.gamma) 为focal loss中 (1-pt)**γ
+        loss = torch.mul(self.alpha, loss.t())
+        if self.size_average:
+            loss = loss.mean()
+        else:
+            loss = loss.sum()
         return loss
+
 
 class DSI(MessagePassing):
     def __init__(self, NodeNum, TopicNum, EdgeNum, device, BatchSize):
@@ -133,23 +147,35 @@ class DSI(MessagePassing):
         return [self.Sig(f - ht), ht.detach()]
 
 
-# def exampleDateFrom():
-#     # PyG保存的有向图，因此有 4 条边：(0 -> 1), (1 -> 0), (1 -> 2), (2 -> 1)
-#     # [2, edgeNum]
-#     edge_index = torch.tensor([[0, 1, 1, 2], [1, 0, 2, 1]], dtype=torch.long)
+def exampleDateFrom():
+    # PyG保存的有向图，因此有 4 条边：(0 -> 1), (1 -> 0), (1 -> 2), (2 -> 1)
+    # [2, edgeNum]
+    edge_index = torch.tensor(
+        [[0, 1, 1, 2, 3, 1], [1, 0, 2, 1, 1, 3]], dtype=torch.long
+    )
 
-#     # trainGroup features
-#     # [trainGroupNum , topicNum]
-#     x = torch.tensor([[1, 2, 3], [0, 0, 0], [1, 0, 0]], dtype=torch.float,)
+    # trainGroup features
+    # [trainGroupNum , topicNum]
+    x = torch.tensor([[1, 2], [0, 0], [1, 0]], dtype=torch.float,)
 
-#     # label
-#     # [trainGroupNum, nodeNum]
-#     label = torch.tensor([[1, 1, 0], [1, 0, 0], [0, 0, 1]], dtype=torch.float)
-#     # Use torch.utils.data to create a DataLoader
-#     # that will take care of creating batches
-#     dataset = TensorDataset(x, label)
-#     print(x.size())
-#     return [dataset, edge_index]
+    # label
+    # [trainGroupNum, nodeNum]
+    label = torch.tensor([[1, 1, 0, 1], [1, 0, 0, 1], [0, 0, 1, 1]], dtype=torch.float)
+    # Use torch.utils.data to create a DataLoader
+    # that will take care of creating batches
+    dataset = TensorDataset(x, label)
+    print(x.size())
+    return [dataset, dataset, edge_index, 4, 6, 2, 3, 3]
+    # [
+    #     dataset,
+    #     prediction_dataset,
+    #     edge_index,
+    #     nodeNum,
+    #     edgeNum,
+    #     topicNum,
+    #     groupNum,
+    #     predictGroupNum,
+    # ]
 
 
 def BatchExpand(edge_index, batch_size):
@@ -169,20 +195,21 @@ def meanBatchOut(batchOut):
     return tmpSum / len(tmpList)
 
 
-def trainNet(dataset, edge_index,lossKind):
+def trainNet(dataset, edge_index, lossKind):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(device)
 
     net = DSI(nodeNum, topicNum, edgeNum, device, batchSize)
     net.to(device)
 
-    if lossKind=="Mse":
+    if lossKind == "Mse":
         criterion = nn.MSELoss(reduction="sum")
-    elif lossKind=="CrossEnt":
-        criterion = nn.CrossEntropyLoss(weight=torch.from_numpy(np.array([1,4000])).float() ,
-                                size_average=True)
-    elif lossKind=="Focal":
-        criterion = focal_loss(alpha=0.25, gamma=2, num_classes = 2, size_average=True)
+    elif lossKind == "CrossEnt":
+        criterion = nn.CrossEntropyLoss(
+            weight=torch.from_numpy(np.array([1, 4000])).float(), size_average=True
+        )
+    elif lossKind == "Focal":
+        criterion = focal_loss(alpha=0.25, gamma=2, num_classes=2, size_average=True)
     optimizer = torch.optim.AdamW(
         net.parameters(), lr=trainLR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01
     )
@@ -250,7 +277,15 @@ def trainNet(dataset, edge_index,lossKind):
             optimizer.zero_grad()
             [predict, tmpthreshold_H] = net(trainGroup_batch, edge_index, threshold_H)
             threshold_H = meanBatchOut(tmpthreshold_H)
-            loss = criterion(predict, label_batch)
+            if lossKind == "Mse":
+                loss = criterion(predict, label_batch)
+            elif lossKind == "CrossEnt":
+                lossLabel = label_batch[0]
+                predictDelOne = 1 - predict
+                lossPredict = torch.cat((predictDelOne, predict), 0).t()
+                loss = criterion(lossPredict, lossLabel)
+            elif lossKind == "Focal":
+                loss = criterion(predict, label_batch)
             loss.backward(retain_graph=True)
             optimizer.step()  # Does the update
             # batchTestNum = (label_batch.size())[1]
@@ -296,21 +331,21 @@ def trainNet(dataset, edge_index,lossKind):
     # prof.export_chrome_trace("torch_trace.json")
     # prof.export_stacks("torch_cpu_stack.json", metric="self_cpu_time_total")
     # prof.export_stacks("torch_cuda_stack.json", metric="self_cuda_time_total")
-    torch.save(net.state_dict(), "./saveNet/save"+lossKind+".pt")
-    torch.save(threshold_H, "./saveNet/Htensor"+lossKind+".pt")
+    torch.save(net.state_dict(), "./saveNet/save" + lossKind + ".pt")
+    torch.save(threshold_H, "./saveNet/Htensor" + lossKind + ".pt")
 
 
-def testNet(dataset, edge_index, gpuDevice,lossKind):
+def testNet(dataset, edge_index, gpuDevice, lossKind):
     # return 0
     device = torch.device(gpuDevice if torch.cuda.is_available() else "cpu")
     print(device)
 
     net = DSI(nodeNum, topicNum, edgeNum, device, batchSize)
-    net.load_state_dict(torch.load("./saveNet/save"+lossKind+".pt"))
+    net.load_state_dict(torch.load("./saveNet/save" + lossKind + ".pt"))
     net.to(device)
     net.eval()
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
-    threshold_H = torch.load("./saveNet/Htensor"+lossKind+".pt")
+    threshold_H = torch.load("./saveNet/Htensor" + lossKind + ".pt")
     edge_index, threshold_H = (
         edge_index.to(device),
         threshold_H.to(device),
@@ -351,17 +386,53 @@ def testNet(dataset, edge_index, gpuDevice,lossKind):
 def main():
     global nodeNum, edgeNum, topicNum, groupNum
     parser = argparse.ArgumentParser()
-    parser.description='please enter some parameters'
-    parser.add_argument("-m", "--mode", help="just predict", dest="mode", type=str, choices =["all","predict","skipall"], default="skipall")
-    parser.add_argument("-c", "--cuda", help="which gpu to use", dest="cuda", type=str, choices=["cuda:0","cuda:1","cuda:2"], default="cuda:0")
-    parser.add_argument("-n", "--node", help="train nodenum", dest="node", type=int, default="10613")
-    parser.add_argument("-l", "--loss", help="loss kinds", dest="loss", type=str, choices=["Mse","CrossEnt","Focal"], default="Mse")
+    parser.description = "please enter some parameters"
+    parser.add_argument(
+        "-m",
+        "--mode",
+        help="just predict",
+        dest="mode",
+        type=str,
+        choices=["all", "predict", "skipall"],
+        default="all",
+    )
+    parser.add_argument(
+        "-c",
+        "--cuda",
+        help="which gpu to use",
+        dest="cuda",
+        type=str,
+        choices=["cuda:0", "cuda:1", "cuda:2"],
+        default="cuda:0",
+    )
+    parser.add_argument(
+        "-n", "--node", help="train nodenum", dest="node", type=int, default="10613"
+    )
+    parser.add_argument(
+        "-l",
+        "--loss",
+        help="loss kinds",
+        dest="loss",
+        type=str,
+        choices=["Mse", "CrossEnt", "Focal"],
+        default="CrossEnt",
+    )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        help="use debug example data",
+        dest="debug",
+        type=str,
+        choices=["debug", "NotDebug"],
+        default="Debug",
+    )
     args = parser.parse_args()
 
     yellowPrint("parameter mode is : %s" % args.mode)
-    yellowPrint("parameter cuda device is : %s"% args.cuda)
-    yellowPrint("parameter node num is : %d "% args.node)
-    yellowPrint("parameter loss kind is :%s"% args.loss)
+    yellowPrint("parameter cuda device is : %s" % args.cuda)
+    yellowPrint("parameter node num is : %d " % args.node)
+    yellowPrint("parameter loss kind is :%s" % args.loss)
+    yellowPrint("parameter is debug is :%s" % args.debug)
 
     # args is a list of the command line args
     if args.mode == "predict":
@@ -374,12 +445,11 @@ def main():
         skip_training = 0
         skip_predict = 0
 
-
     gpuDevice = args.cuda
-    nodeNum=int(args.node)
+    nodeNum = int(args.node)
 
-   
-    [
+    if args.debug == "NotDebug":
+        [
             dataset,
             prediction_dataset,
             edge_index,
@@ -389,6 +459,17 @@ def main():
             groupNum,
             predictGroupNum,
         ] = readDataFromDatabase(nodeNum)
+    else:
+        [
+            dataset,
+            prediction_dataset,
+            edge_index,
+            nodeNum,
+            edgeNum,
+            topicNum,
+            groupNum,
+            predictGroupNum,
+        ] = exampleDateFrom()
 
     print(
         "nodeNum,edgeNum,topicNum,groupNum predictGroupNum {} {} {} {} {}".format(
@@ -397,12 +478,12 @@ def main():
     )
     if skip_training == 0:
         print("train")
-        trainNet(dataset, edge_index,args.loss)
+        trainNet(dataset, edge_index, args.loss)
     else:
         print("skip train")
     if skip_predict == 0:
         print("predict")
-        testNet(prediction_dataset, edge_index, gpuDevice,args.loss)
+        testNet(prediction_dataset, edge_index, gpuDevice, args.loss)
     else:
         print("skip predict")
 
