@@ -301,9 +301,9 @@ def main():
         skip_training = 0
         skip_predict = 0
 
-    if len(args) == 1:
+    if len(args) == 2:
         gpuDevice = args[1]
-    elif len(args) == 2:
+    elif len(args) == 3:
         gpuDevice = args[1]
         nodeNum=int(args[2])
     else:
