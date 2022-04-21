@@ -94,7 +94,7 @@ def readDataFromDatabase(nodeNum):
             groupNum,
             predictGroupNum,
         ] = db.exampleDataFrom(
-            nodeNum, percent=0.8, simple_topics=True, use_top_city=True, citynum=1
+            nodeNum, percent=0.8, simple_topics=True, use_top_city=True, citynum=1,min_group_num=3
         )
         f = open("nodeNum_" + str(nodeNum) + ".tmp", "wb")
         pickle.dump(

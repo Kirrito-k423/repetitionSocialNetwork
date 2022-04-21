@@ -141,6 +141,9 @@ class DataBase(object):
                 if memberid in self.member_index and groupid in self.group_index:
                     labels[self.group_index[groupid]
                            ][self.member_index[memberid]] = 1
+        import numpy as np
+        print('each member participated group nums:\n',
+              np.array(labels).sum(axis=0))
         self.labels = labels
 
     def get_group_features(self):
@@ -164,7 +167,7 @@ class DataBase(object):
                                ][self.topics_index[topic]] = 1
         self.group_features = group_features
 
-    def get_data_by_city(self, citynum=5):
+    def get_data_by_city(self, min_num_groups=3, citynum=5):
         cursor = self.conn.cursor()
         print("Start get data by city...")
         sql = ("select groups.city, "
@@ -179,7 +182,15 @@ class DataBase(object):
                "left join topics on membertopics.topicsid=topics.id "
                "where topicsid is not null and "
                "topics.name is not null "
-               "group by groups.city order by groupnum desc limit {}").format(citynum)
+                "and members.id in "
+               "  (select memberid from "
+               "    (select membergroups.memberid, count(distinct groupid) groupnum "
+               "     from membergroups  group by memberid "
+               "     order by groupnum desc "
+               "     ) "
+               "     as membergroupnum where groupnum >= {} "
+               "  ) "
+ "group by groups.city order by groupnum desc limit {}").format(min_num_groups, citynum)
         cursor.execute(sql)
         data_by_city = cursor.fetchall()
         print("Get data by city finished. Start processing...")
@@ -232,7 +243,7 @@ class DataBase(object):
         self.get_labels()
         self.get_group_features()
 
-    def exampleDataFrom(self, membernum=-1, percent=0.8, simple_topics=False, use_top_city=True, citynum=5):
+    def exampleDataFrom(self, membernum=-1, percent=0.8, simple_topics=False, use_top_city=True, citynum=5, min_group_num=3):
         """get train data and prediction data
 
         Args:
@@ -241,6 +252,7 @@ class DataBase(object):
             simple_topics (bool, optional): whether to use reduced topics. Defaults to False.
             use_top_city (bool, optional): whether get data from top member num cities. Defaults to True.
             citynum (int, optional): city number when use_top_city is true. Defaults to 5.
+            mini_group_num (int, optional): minimum group number a member supposed to participated. Defaults to 3.
 
         Returns:
             tuple : [train_dataset, edges], [prediction_dataset, edges]
@@ -248,7 +260,7 @@ class DataBase(object):
         self.simple_topics = simple_topics
         self.membernum = membernum
         if use_top_city:
-            self.get_data_by_city(citynum)
+            self.get_data_by_city(min_group_num, citynum)
         else:
             self.get_data_by_num(membernum)
 
