@@ -206,11 +206,11 @@ def trainNet(dataset, edge_index, lossKind):
         criterion = nn.MSELoss(reduction="sum")
     elif lossKind == "CrossEnt":
         criterion = nn.CrossEntropyLoss(
-            weight=(torch.from_numpy(np.array([1, 4000])).float()).to(device),
-            size_average=True,
+            weight=(torch.from_numpy(np.array([1, 1000])).float()).to(device),
+            reduction='sum'
         )
     elif lossKind == "Focal":
-        criterion = focal_loss(alpha=0.25, gamma=2, num_classes=2, size_average=True)
+        criterion = focal_loss(alpha=0.25, gamma=2, num_classes=2, size_average=False)
     optimizer = torch.optim.AdamW(
         net.parameters(), lr=trainLR, betas=(0.9, 0.999), eps=1e-08, weight_decay=0.01
     )
