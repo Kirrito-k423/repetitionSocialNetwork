@@ -13,6 +13,31 @@ python3 ./src/dataAnalysis.py 1770
 ```
 
 ## Run
+### help
+```
+$ python3 ./src/main.py -h
+usage: main.py [-h] [-m {all,predict,skipall}] [-c {cuda:0,cuda:1,cuda:2}] [-n NODE] [-l {Mse,CrossEnt,Focal}]
+               [-d {debug,NotDebug}] [-b BATCH] [-lr LR] [-e EPOCH]
+
+please enter some parameters
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -m {all,predict,skipall}, --mode {all,predict,skipall}
+                        just predict
+  -c {cuda:0,cuda:1,cuda:2}, --cuda {cuda:0,cuda:1,cuda:2}
+                        which gpu to use
+  -n NODE, --node NODE  train nodenum
+  -l {Mse,CrossEnt,Focal}, --loss {Mse,CrossEnt,Focal}
+                        loss kinds
+  -d {debug,NotDebug}, --debug {debug,NotDebug}
+                        use debug example data
+  -b BATCH, --batch BATCH
+                        batch size
+  -lr LR, --learn LR    train learning rate
+  -e EPOCH, --epoch EPOCH
+                        epoch num
+```
 ### 训练
 当前目录
 ```
