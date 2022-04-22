@@ -6,4 +6,4 @@ test/runs/*
 *.json
 *.pyc
 notGit
-*.tmp
+# *.tmp
