@@ -339,8 +339,8 @@ def trainNet(dataset, edge_index, lossKind):
     # prof.export_stacks("torch_cpu_stack.json", metric="self_cpu_time_total")
     # prof.export_stacks("torch_cuda_stack.json", metric="self_cuda_time_total")
     addstr=lossKind + "Node"+str(nodeNum)+"Batch"+str(batchSize)+"Epoch"+str(N_EPOCHS)+"LR"+str(trainLR)
-    torch.save(net.state_dict(), "./saveNet/save" +addstr +".pt")
-    torch.save(threshold_H, "./saveNet/Htensor" + addstr +".pt")
+    torch.save(net.state_dict(), "./save" +addstr +".pt")
+    torch.save(threshold_H, "./Htensor" + addstr +".pt")
 
 
 def testNet(dataset, edge_index, gpuDevice, lossKind):
@@ -350,11 +350,11 @@ def testNet(dataset, edge_index, gpuDevice, lossKind):
 
     net = DSI(nodeNum, topicNum, edgeNum, device, batchSize)
     addstr=lossKind + "Node"+str(nodeNum)+"Batch"+str(batchSize)+"Epoch"+str(N_EPOCHS)+"LR"+str(trainLR)
-    net.load_state_dict(torch.load("./saveNet/save" + addstr+".pt"))
+    net.load_state_dict(torch.load("./save" + addstr+".pt"))
     net.to(device)
     net.eval()
     dataloader = DataLoader(dataset, batch_size=batchSize, shuffle=True)
-    threshold_H = torch.load("./saveNet/Htensor" + addstr+".pt")
+    threshold_H = torch.load("./Htensor" + addstr+".pt")
     edge_index, threshold_H = (
         edge_index.to(device),
         threshold_H.to(device),
