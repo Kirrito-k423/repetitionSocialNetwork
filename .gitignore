@@ -6,6 +6,8 @@ test/runs/*
 *.json
 *.pyc
 notGit
-# *.tmp
+*.tmp
+!nodeNum_1770.tmp
+!nodeNum_10613.tmp
 !saveFocalNode1770Batch32Epoch200LR0.001.pt
 !HtensorFocalNode1770Batch32Epoch200LR0.001.pt
