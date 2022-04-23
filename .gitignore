@@ -7,3 +7,5 @@ test/runs/*
 *.pyc
 notGit
 # *.tmp
+!saveFocalNode1770Batch32Epoch200LR0.001.pt
+!HtensorFocalNode1770Batch32Epoch200LR0.001.pt

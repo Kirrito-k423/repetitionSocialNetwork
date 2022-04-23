@@ -2,7 +2,7 @@
 
 ## database
 
-随便上传了两个数据集
+上传了最后筛选过后的两个数据集
 ```
 nodeNum_10613.tmp # 各个城市中group数最大的数据集子集
 nodeNum_1770.tmp # 在上一个子集的要求上，额外去除掉参与group数小于3的用户的数据集子集
@@ -38,8 +38,8 @@ optional arguments:
   -e EPOCH, --epoch EPOCH
                         epoch num
 ```
-### 训练
-当前目录
+### 训练并测试
+当前目录，BatchSize=32，需要大约20GB显存。
 ```
 python3 ./src/main.py -m all -c cuda:0 -n 1770 -l Focal -d NotDebug -b 32 -lr 0.001 -e 200
 ```
@@ -47,7 +47,15 @@ python3 ./src/main.py -m all -c cuda:0 -n 1770 -l Focal -d NotDebug -b 32 -lr 0.
 ```
 python3 ./src/main.py -m predict -c cuda:0 -n 1770 -l Focal -d NotDebug -b 32 -lr 0.001 -e 200
 ```
-##
+
+## 已经训练好的网络参数
+位于 saveNet 下
+
+## 文档和相关链接
+
+pdf 位于 resource文件夹
+
+Notion临时文档：https://shaojiemike.notion.site/2-83e02db271714832be55f3a44d0cf326
 ## To Do: 
 
 

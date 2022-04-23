@@ -359,6 +359,7 @@ def testNet(dataset, edge_index, gpuDevice, lossKind):
         edge_index.to(device),
         threshold_H.to(device),
     )
+    log_writer = SummaryWriter()
     testNum = 0
     correctNum = 0
     positiveLabelNum = 0
@@ -373,6 +374,7 @@ def testNet(dataset, edge_index, gpuDevice, lossKind):
         # print(trainGroup_batch, flush=True)
         [predict, tmpthreshold_H] = net(trainGroup_batch, edge_index, threshold_H)
         threshold_H = meanBatchOut(tmpthreshold_H)
+        log_writer.add_pr_curve("predict pr_curve by batch", label_batch, predict, id_batch)
         batchTestNum = (label_batch.size())[1]
         testNum += batchTestNum
         print(testNum)
