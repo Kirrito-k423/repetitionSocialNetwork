@@ -72,3 +72,7 @@ pdf 位于 resource文件夹
 Notion临时文档：https://shaojiemike.notion.site/2-83e02db271714832be55f3a44d0cf326
 
 ## To Do:
+
+1. 更光滑的激活函数效果可能更好
+2. 对于阈值h的迭代公式，由于是乘积，假如其中某一项是负数，整个效果就颠倒了
+3. 数据集还需要进一步均衡
